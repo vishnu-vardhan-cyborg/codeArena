@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local Judge0 secrets
+/judge0/judge0.conf
