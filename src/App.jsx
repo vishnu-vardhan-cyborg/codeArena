@@ -8,13 +8,19 @@ import {
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Preview from "./pages/Preview";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Clan from "./pages/Clan";
 import Chat from "./pages/Chat";
 import Problem from "./pages/Problem";
+import RabbitHole from "./pages/RabbitHole";
+import LearningPath from "./pages/LearningPath";
+import PowerUpHunt from "./pages/PowerUpHunt";
 import Notifications from "./components/Notifications";
+import ThemeToggle from "./components/ThemeToggle";
 import "./App.css";
+import "./styles/Theme.css";
 
 import {
   joinUserNotificationRoom,
@@ -79,7 +85,7 @@ function RequireAuth({ children }) {
 
   return isLoggedIn
     ? children
-    : <Navigate to="/" />;
+    : <Navigate to="/login" />;
 }
 
 
@@ -87,10 +93,16 @@ export default function App() {
   return (
     <>
       <LiveNotificationListener />
+      <ThemeToggle />
 
       <Routes>
         <Route
           path="/"
+          element={<Preview />}
+        />
+
+        <Route
+          path="/login"
           element={<Login />}
         />
 
@@ -149,6 +161,33 @@ export default function App() {
           element={
             <RequireAuth>
               <Problem />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/rabbit-hole"
+          element={
+            <RequireAuth>
+              <RabbitHole />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/rabbit-hole/:pathId"
+          element={
+            <RequireAuth>
+              <LearningPath />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/power-up-hunt"
+          element={
+            <RequireAuth>
+              <PowerUpHunt />
             </RequireAuth>
           }
         />

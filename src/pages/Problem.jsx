@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getProblemById } from "../data/problems";
 import { loadJudge0Languages, runJudge0Code } from "../judge0";
+import { recordActivity } from "../activity";
 
 const starterCodeForLanguage = (languageName = "") => {
   const name = languageName.toLowerCase();
@@ -48,6 +49,13 @@ export default function Problem() {
   const navigate = useNavigate();
   const { problemId } = useParams();
   const problem = getProblemById(problemId);
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("loggedInUser") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
 
   const [languages, setLanguages] = useState([]);
   const [languageId, setLanguageId] = useState("");
@@ -128,6 +136,19 @@ export default function Problem() {
 
       setExecutionStatus(result.status?.description || "Finished");
       setOutput(formatExecutionOutput(result));
+
+      if (Number(result.status?.id) === 3 && currentUser?.id) {
+        await recordActivity({
+          userId: currentUser.id,
+          activityType: "code_run",
+          problemId,
+          metadata: {
+            languageId: Number(languageId),
+            languageName: selectedLanguage?.name || "",
+            status: result.status?.description || "Accepted",
+          },
+        });
+      }
     } catch (error) {
       setExecutionStatus("Error");
       setOutput(error.message);

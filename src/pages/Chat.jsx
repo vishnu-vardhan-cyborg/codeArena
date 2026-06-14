@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Check,
+  MessageCircle,
+  Plus,
+  Search,
+  Send,
+  UsersRound,
+} from "lucide-react";
 import { supabase } from "../supabase";
 import {
   connectSocket,
@@ -8,6 +17,7 @@ import {
   sendChatMessage,
   socket,
 } from "../socket";
+import "../styles/Chat.css";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
 
@@ -47,6 +57,8 @@ export default function Chat() {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [socketConnected, setSocketConnected] = useState(socket.connected);
 
   useEffect(() => {
     const loadFriends = async () => {
@@ -176,12 +188,16 @@ export default function Chat() {
       setStatusMessage(errorMessage);
       setIsCreatingGroup(false);
     };
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
 
     socket.on("chat:message", handleMessage);
     socket.on("chat:history", handleHistory);
     socket.on("chat:group-created", handleGroupCreated);
     socket.on("chat:groups", handleGroups);
     socket.on("chat:error", handleError);
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
     socket.emit("chat:groups:list", { userId: currentUserId });
 
     return () => {
@@ -190,6 +206,8 @@ export default function Chat() {
       socket.off("chat:group-created", handleGroupCreated);
       socket.off("chat:groups", handleGroups);
       socket.off("chat:error", handleError);
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
     };
   }, [currentUserId]);
 
@@ -231,6 +249,15 @@ export default function Chat() {
   const messages = selectedConversation
     ? messagesByRoom[selectedConversation.id] || []
     : [];
+
+  const filteredFriends = friends.filter((friend) =>
+    getDisplayName(friend)
+      .toLowerCase()
+      .includes(conversationSearch.trim().toLowerCase())
+  );
+  const filteredGroups = groups.filter((group) =>
+    group.name.toLowerCase().includes(conversationSearch.trim().toLowerCase())
+  );
 
   const toggleMember = (friendId) => {
     const normalizedFriendId = String(friendId);
@@ -292,75 +319,134 @@ export default function Chat() {
   };
 
   return (
-    <div className="page chat-page">
-      <div className="page-header">
+    <div className="chat-page">
+      <header className="chat-page-header">
+        <button
+          className="chat-back-button"
+          type="button"
+          onClick={() => navigate("/home")}
+        >
+          <ArrowLeft size={17} />
+          Home
+        </button>
         <div>
-          <h1>Chat</h1>
-          <p>Message friends</p>
+          <span>CodeArena messenger</span>
+          <h1>Chats</h1>
+          <p>Plan, solve, and keep your team moving.</p>
         </div>
+        <div className="chat-header-status">
+          <i className={socketConnected ? "" : "offline"} />
+          <span>{socketConnected ? "Socket connected" : "Socket offline"}</span>
+        </div>
+      </header>
 
-        <button onClick={() => navigate("/home")}>Back</button>
-      </div>
-
-      {statusMessage && <p className="error">{statusMessage}</p>}
+      {statusMessage && <p className="chat-status-message">{statusMessage}</p>}
 
       <div className="chat-layout">
         <aside className="chat-sidebar">
-          <h2>Friends</h2>
+          <div className="chat-sidebar-heading">
+            <div>
+              <span>Inbox</span>
+              <h2>Conversations</h2>
+            </div>
+            <strong>{conversations.length}</strong>
+          </div>
 
-          {friends.length === 0 ? (
-            <p>No friends yet</p>
-          ) : (
-            friends.map((friend) => {
-              const roomId = directRoomId(currentUserId, friend.id);
+          <label className="chat-search">
+            <Search size={16} />
+            <input
+              type="search"
+              placeholder="Search chats"
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
+            />
+          </label>
 
-              return (
+          <div className="conversation-scroll">
+            <div className="conversation-section-heading">
+              <MessageCircle size={14} />
+              <span>Direct messages</span>
+            </div>
+
+            {filteredFriends.length === 0 ? (
+              <p className="chat-list-empty">No matching friends.</p>
+            ) : (
+              filteredFriends.map((friend) => {
+                const roomId = directRoomId(currentUserId, friend.id);
+
+                return (
+                  <button
+                    type="button"
+                    key={friend.id}
+                    className={
+                      selectedConversationId === roomId
+                        ? "conversation-button active-conversation"
+                        : "conversation-button"
+                    }
+                    onClick={() => setSelectedConversationId(roomId)}
+                  >
+                    <span className="conversation-avatar-wrap">
+                      <img
+                        src={friend.profile_pic || DEFAULT_AVATAR}
+                        alt=""
+                        className="friend-avatar"
+                      />
+                      <i />
+                    </span>
+                    <span className="conversation-copy">
+                      <strong>{getDisplayName(friend)}</strong>
+                      <small>Direct message</small>
+                    </span>
+                  </button>
+                );
+              })
+            )}
+
+            <div className="conversation-section-heading">
+              <UsersRound size={14} />
+              <span>Group chats</span>
+            </div>
+
+            {filteredGroups.length === 0 ? (
+              <p className="chat-list-empty">No group chats yet.</p>
+            ) : (
+              filteredGroups.map((group) => (
                 <button
-                  key={friend.id}
+                  type="button"
+                  key={group.id}
                   className={
-                    selectedConversationId === roomId
+                    selectedConversationId === group.id
                       ? "conversation-button active-conversation"
                       : "conversation-button"
                   }
-                  onClick={() => setSelectedConversationId(roomId)}
+                  onClick={() => setSelectedConversationId(group.id)}
                 >
-                  <img
-                    src={friend.profile_pic || DEFAULT_AVATAR}
-                    alt=""
-                    className="friend-avatar"
-                  />
-                  <span>{getDisplayName(friend)}</span>
+                  <span className="group-avatar">{group.name.charAt(0)}</span>
+                  <span className="conversation-copy">
+                    <strong>{group.name}</strong>
+                    <small>{group.memberIds?.length || 0} members</small>
+                  </span>
                 </button>
-              );
-            })
-          )}
-
-          <h2>Groups</h2>
-
-          {groups.length === 0 ? (
-            <p>No group chats</p>
-          ) : (
-            groups.map((group) => (
-              <button
-                key={group.id}
-                className={
-                  selectedConversationId === group.id
-                    ? "conversation-button active-conversation"
-                    : "conversation-button"
-                }
-                onClick={() => setSelectedConversationId(group.id)}
-              >
-                <span className="group-avatar">{group.name.charAt(0)}</span>
-                <span>{group.name}</span>
-              </button>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </aside>
 
         <main className="chat-panel">
           {selectedConversation ? (
             <>
               <div className="chat-panel-header">
+                <span
+                  className={
+                    selectedConversation.type === "group"
+                      ? "group-avatar chat-header-avatar"
+                      : "chat-header-direct-avatar"
+                  }
+                >
+                  {selectedConversation.type === "group"
+                    ? selectedConversation.name.charAt(0)
+                    : selectedConversation.name.charAt(0)}
+                </span>
                 <div>
                   <h2>{selectedConversation.name}</h2>
                   <p>
@@ -373,7 +459,11 @@ export default function Chat() {
 
               <div className="message-list">
                 {messages.length === 0 ? (
-                  <p className="empty-state">Start the conversation.</p>
+                  <div className="chat-empty-state">
+                    <MessageCircle size={25} />
+                    <strong>Start the conversation</strong>
+                    <span>Messages are stored in Supabase chat history.</span>
+                  </div>
                 ) : (
                   messages.map((message) => {
                     const isMine = message.senderId === currentUserId;
@@ -406,27 +496,46 @@ export default function Chat() {
                   onChange={(event) => setMessageText(event.target.value)}
                   onKeyDown={handleComposerKeyDown}
                 />
-                <button className="btn" onClick={handleSendMessage}>
-                  Send
+                <button
+                  type="button"
+                  aria-label="Send message"
+                  onClick={handleSendMessage}
+                >
+                  <Send size={18} />
                 </button>
               </div>
             </>
           ) : (
-            <p className="empty-state">Add friends to start chatting.</p>
+            <div className="chat-empty-state">
+              <MessageCircle size={25} />
+              <strong>Select a conversation</strong>
+              <span>Add friends or create a group to start chatting.</span>
+            </div>
           )}
         </main>
 
         <aside className="group-panel">
-          <h2>Create Group</h2>
+          <div className="group-panel-heading">
+            <span className="group-create-icon">
+              <Plus size={17} />
+            </span>
+            <div>
+              <span>New conversation</span>
+              <h2>Create group</h2>
+            </div>
+          </div>
 
-          <input
-            className="input"
-            value={groupName}
-            placeholder="Group name"
-            onChange={(event) => setGroupName(event.target.value)}
-          />
+          <label className="group-name-field">
+            <span>Group name</span>
+            <input
+              value={groupName}
+              placeholder="e.g. DSA challengers"
+              onChange={(event) => setGroupName(event.target.value)}
+            />
+          </label>
 
           <div className="member-picker">
+            <span>Select members</span>
             {friends.length === 0 ? (
               <p>Add friends before creating a group.</p>
             ) : (
@@ -437,6 +546,13 @@ export default function Chat() {
                     checked={selectedMemberIds.includes(String(friend.id))}
                     onChange={() => toggleMember(friend.id)}
                   />
+                  <span className="member-check">
+                    <Check size={12} />
+                  </span>
+                  <img
+                    src={friend.profile_pic || DEFAULT_AVATAR}
+                    alt=""
+                  />
                   <span>{getDisplayName(friend)}</span>
                 </label>
               ))
@@ -444,11 +560,14 @@ export default function Chat() {
           </div>
 
           <button
-            className={isCreatingGroup ? "btn disabled" : "btn"}
+            className={
+              isCreatingGroup ? "create-group-button disabled" : "create-group-button"
+            }
             disabled={isCreatingGroup}
             onClick={handleCreateGroup}
           >
-            {isCreatingGroup ? "Creating..." : "Create Group"}
+            <UsersRound size={16} />
+            {isCreatingGroup ? "Creating..." : "Create group"}
           </button>
         </aside>
       </div>
