@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import heroImage from "../assets/code-arena-hero.png";
+import SpaceCodeScene from "../components/SpaceCodeScene";
 
 const features = [
   {
     number: "01",
     title: "Solve real challenges",
-    text: "Search by difficulty, open a focused workspace, and run code through a self-hosted Judge0 engine.",
+    text: "Search by difficulty, open a focused workspace, and judge code through the self-hosted Typhon engine.",
   },
   {
     number: "02",
@@ -19,7 +20,7 @@ const features = [
   },
 ];
 
-const stack = ["React", "Supabase", "Socket.IO", "Judge0 CE"];
+const stack = ["React", "Supabase", "Socket.IO", "Typhon"];
 
 export default function Preview() {
   const navigate = useNavigate();
@@ -49,13 +50,19 @@ export default function Preview() {
 
       <main>
         <section className="preview-hero">
+          <SpaceCodeScene />
           <img
+            className="preview-hero-fallback"
             src={heroImage}
             alt="A digital coding arena with challenge platforms"
           />
           <div className="preview-hero-overlay" />
 
           <div className="preview-hero-content">
+            <span className="preview-scene-status">
+              <i />
+              Orbital challenge network online
+            </span>
             <span className="hero-kicker">Code. Compete. Connect.</span>
             <h1>CodeArena</h1>
             <p>

@@ -1,42 +1,22 @@
 # CodeArena
 
-CodeArena is a gamified coding practice and social learning platform. Players can
-solve programming problems using a self-hosted Judge0 instance, build streaks,
-join clans, create learning challenges, chat with friends, explore guided
-learning maps, and play a small power-up hunting game.
+CodeArena is a gamified coding and developer-community platform. Players solve
+problems through the self-hosted Typhon execution engine, earn XP, build
+streaks, share posts, join clans and Time Capsules, chat with friends, and
+explore graphical learning paths.
 
-The project is currently a functional prototype built with React, Supabase,
-Socket.IO, XYFlow, and Judge0 CE.
+## Core Features
 
-## Features
-
-- Public preview, login, and account creation pages
-- Responsive dashboard with quick actions and problem difficulty filters
-- Problem descriptions and multi-language code execution through Judge0
-- Supabase-backed profile activity and graphical streak calendar
-- Friend search, requests, notifications, and profiles
-- Direct messages and persistent group chat history
-- Clans, clan rankings, and clan creation
-- Time Capsule learning challenges for friends and groups
-- Rabbit Hole learning maps for:
-  - Data Structures and Algorithms
-  - System Design
-  - Programming Languages
-  - AI and Machine Learning
-- Power Up Hunt keyboard and touch mini-game
-- Persistent light and dark themes
-
-## Technology
-
-| Area | Technology |
-| --- | --- |
-| Frontend | React 19, React Router, Create React App |
-| Database | Supabase Postgres |
-| Realtime backend | Node.js HTTP server and Socket.IO |
-| Code execution | Self-hosted Judge0 CE 1.13.1 |
-| Learning maps | XYFlow / React Flow |
-| Icons | Lucide React |
-| Styling | Page-specific CSS and global theme overrides |
+- Supabase-backed problem catalog, hidden test cases, submissions, solved state,
+  acceptance rate, XP, and activity metrics
+- Separate Run and Submit flows:
+  - Run executes custom input through Typhon and stores nothing
+  - Submit runs server-only hidden tests and persists one submission
+- Python 3 and Java 21 execution through Typhon Docker sandboxes
+- Profile, graphical streak calendar, posts, followers, and Career Loadout
+- Friends, direct messages, persistent group chats, and notifications
+- Clans, Time Capsules, Rabbit Hole learning paths, and Power Up Hunt
+- Global light and dark themes
 
 ## Architecture
 
@@ -45,368 +25,221 @@ flowchart LR
     Browser["React frontend :3000"]
     Backend["Node + Socket.IO backend :4000"]
     Supabase["Supabase Postgres + Storage"]
-    Judge0["Judge0 CE :2358"]
+    Typhon["Typhon FastAPI :8000"]
+    Docker["Typhon Docker sandboxes"]
 
-    Browser -->|Database queries| Supabase
-    Browser -->|Chat and notifications| Backend
-    Browser -->|Judge0 proxy API| Backend
-    Backend -->|Persist chat and groups| Supabase
-    Backend -->|Execute code| Judge0
+    Browser --> Backend
+    Browser --> Supabase
+    Backend --> Supabase
+    Backend --> Typhon
+    Typhon --> Docker
 ```
 
-Chat messages are stored in the Supabase `chat_messages` table. Socket.IO is
-used for realtime delivery, while the backend loads up to the latest 100
-messages when a room is joined.
+Hidden problem tests are only read by the Node backend using the Supabase
+service-role key. Never expose that key to the React frontend.
 
 ## Project Structure
 
 ```text
-codeArena/
-|-- backend/
-|   |-- server.js                    # Socket.IO server and Judge0 proxy
-|   |-- judge0.js                    # Judge0 request and polling logic
-|   |-- supabase.js                  # Backend Supabase client
-|   |-- supabase-schema.sql          # Combined feature schema
-|   |-- profile-activity-schema.sql  # Standalone streak/activity schema
-|   `-- time-capsule-schema.sql      # Standalone Time Capsule schema
-|-- judge0/
-|   |-- docker-compose.yml
-|   |-- judge0.conf.example
-|   |-- setup.ps1
-|   `-- README.md
-|-- public/
-|-- src/
-|   |-- components/
-|   |-- data/
-|   |-- pages/
-|   |-- styles/
-|   |-- activity.js
-|   |-- judge0.js
-|   |-- socket.js
-|   `-- supabase.js
-|-- package.json
-`-- README.md
+backend/
+  http.js                         HTTP request helpers
+  problems.js                     Catalog, hidden-test judging, metrics
+  problem-schema.sql              Problems, tests, submissions, seed data
+  server.js                       REST API and Socket.IO server
+  supabase.js                     Backend Supabase client
+  supabase-schema.sql             Combined earlier feature schema
+  typhon.js                       Typhon execution client
+  social-schema.sql               Posts, follows, notifications
+  profile-activity-schema.sql     Streak activity
+  profile-pics-storage-schema.sql Storage bucket policies
+  time-capsule-schema.sql         Time Capsules
+Typhon/
+  runner/                         FastAPI execution service and sandboxes
+src/
+  features/problems/problemApi.js Problem and Typhon frontend API
+  features/careerLoadout/         Career metric calculations
+  pages/                          Application pages
+  styles/                         Page-specific styles
 ```
 
-## Prerequisites
+## Requirements
 
-- Node.js 18 or newer
+- Node.js 18+
 - npm
-- A Supabase project
+- Python 3.11+
 - Docker Desktop
-- Windows: Docker Desktop with the WSL 2 Linux engine enabled
-
-Judge0 officially targets Linux and requires privileged container support.
+- A Supabase project
 
 ## Supabase Setup
 
-### Existing Core Tables
-
-The application expects these core tables to already exist:
+The existing application expects these core tables:
 
 - `lusers`
-  - `id`
-  - `username`
-  - `password`
-  - `uusername`
-  - `age`
-  - `xp`
-  - `profile_pic`
 - `friends`
-  - `user1_id`
-  - `user2_id`
 - `friend_requests`
-  - `id`
-  - `sender_id`
-  - `receiver_id`
-  - `status`
 
-The profile image uploader also expects a public Supabase Storage bucket named
-`profilepics`.
+The `lusers` table must include at least:
 
-If `profile_pic` is missing from `lusers`, run:
+- `id`
+- `username`
+- `uusername`
+- `age`
+- `xp`
+- `profile_pic`
 
-```sql
-alter table public.lusers
-add column if not exists profile_pic text;
-```
-
-### Feature Tables
-
-Open the Supabase SQL editor and run:
+Run the feature SQL files in the Supabase SQL editor:
 
 ```text
 backend/supabase-schema.sql
+backend/social-schema.sql
+backend/problem-schema.sql
+backend/profile-pics-storage-schema.sql
 ```
 
-This creates:
+`backend/problem-schema.sql` creates and seeds:
 
-- `clans`
-- `clan_members`
-- `chat_groups`
-- `chat_group_members`
-- `chat_messages`
-- `time_capsules`
-- `time_capsule_members`
-- `user_activity`
+- `problems`
+- `problem_test_cases`
+- `problem_submissions`
+- `user_problem_progress`
 
-The standalone activity and Time Capsule SQL files are provided for projects
-that only need those individual features.
+It also creates the trigger that:
 
-> The included feature schema disables Row Level Security to support the
-> current prototype authentication model. Configure proper Supabase Auth and
-> RLS policies before production deployment.
+- Updates submission and acceptance counts
+- Marks problems as solved
+- Awards difficulty XP only on the first accepted submission
+- Updates the user XP value
+- Adds accepted submissions to `user_activity`
 
-## Configuration
+### Backend Environment
 
-Create `.env.local` in the project root:
-
-```env
-REACT_APP_SOCKET_URL=http://localhost:4000
-REACT_APP_API_URL=http://localhost:4000
-```
-
-The frontend currently creates its Supabase client in `src/supabase.js`.
-Update that file to point at your Supabase project.
-
-The backend reads these optional environment variables:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `SOCKET_PORT` | `4000` | Backend HTTP and Socket.IO port |
-| `JUDGE0_URL` | `http://localhost:2358` | Judge0 API URL |
-| `SUPABASE_URL` | Current development project | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | None | Recommended backend-only Supabase key |
-| `SUPABASE_ANON_KEY` | Current publishable key | Backend fallback key |
-
-The Node backend does not currently load `.env` files automatically. Set
-backend environment variables in the terminal or deployment environment before
-starting it.
-
-PowerShell example:
+Set these before starting the backend:
 
 ```powershell
 $env:SUPABASE_URL="https://your-project.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
-$env:JUDGE0_URL="http://localhost:2358"
+$env:SUPABASE_SECRET_KEY="sb_secret_your-secret-key"
+$env:TYPHON_URL="http://localhost:8000"
 npm run start:socket
 ```
 
-Never expose the Supabase service-role key to the React frontend.
+`SUPABASE_SECRET_KEY` is recommended for submissions because hidden test cases
+must not be readable with the public frontend key. The legacy
+`SUPABASE_SERVICE_ROLE_KEY` variable remains supported.
 
 ## Installation
 
-Install frontend and backend dependencies from the project root:
-
 ```powershell
 npm install
+npm run typhon:install
 ```
 
-The backend uses dependencies from the root `package.json`; it does not have a
-separate package file.
+## Start Typhon
 
-## Start Judge0
-
-Generate a local Judge0 configuration with random database and Redis passwords:
+Build the Python and Java sandbox images:
 
 ```powershell
-npm run judge0:setup
+npm run typhon:build
 ```
 
-Start Judge0:
+Start the Typhon FastAPI service:
 
 ```powershell
-npm run judge0:up
+npm run typhon:start
 ```
 
-Judge0 endpoints:
+Typhon runs at:
 
-- API: `http://localhost:2358`
-- Documentation: `http://localhost:2358/docs`
-
-Stop Judge0:
-
-```powershell
-npm run judge0:down
+```text
+http://localhost:8000
+http://localhost:8000/docs
 ```
 
-The generated `judge0/judge0.conf` contains local secrets and is ignored by
-Git.
+## Start CodeArena
 
-## Run the Application
-
-Run each command in a separate terminal.
-
-Terminal 1, realtime backend and Judge0 proxy:
+Terminal 1:
 
 ```powershell
+npm run typhon:start
+```
+
+Terminal 2:
+
+```powershell
+$env:SUPABASE_SECRET_KEY="sb_secret_your-secret-key"
 npm run start:socket
 ```
 
-Terminal 2, React frontend:
+Terminal 3:
 
 ```powershell
 npm start
 ```
 
-Open:
+Open `http://localhost:3000`.
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:4000`
-- Judge0 health proxy: `http://localhost:4000/api/judge0/health`
+## Commands
 
-## Available Scripts
-
-| Command | Description |
+| Command | Purpose |
 | --- | --- |
-| `npm start` | Start the React development server |
-| `npm run start:socket` | Start the Socket.IO backend and Judge0 proxy |
-| `npm run judge0:setup` | Generate `judge0/judge0.conf` |
-| `npm run judge0:up` | Start Judge0, Postgres, Redis, and workers |
-| `npm run judge0:down` | Stop Judge0 services |
-| `npm run build` | Create an optimized production build |
-| `npm test` | Run the React test runner |
+| `npm start` | Start the React frontend |
+| `npm run start:socket` | Start REST API, judge service, and Socket.IO |
+| `npm run typhon:install` | Install Typhon Python dependencies |
+| `npm run typhon:build` | Build Typhon Python and Java sandbox images |
+| `npm run typhon:start` | Start Typhon on port 8000 |
+| `npm run build` | Create a production frontend build |
 
-## Application Routes
+## Problem Judging
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Public application preview |
-| `/login` | Player login |
-| `/signup` | Account creation |
-| `/home` | Main dashboard |
-| `/profile` | Profile, XP, friends, and streak calendar |
-| `/notifications` | Friend requests and XP notifications |
-| `/chat` | Direct and group chat |
-| `/clans` | Clans, rankings, Time Capsules, and Aura placeholder |
-| `/problems/:problemId` | Problem description and Judge0 code runner |
-| `/rabbit-hole` | Learning path overview |
-| `/rabbit-hole/:pathId` | Interactive XYFlow learning map |
-| `/power-up-hunt` | Pixel-style mini-game |
+### Run
 
-Protected routes redirect unauthenticated users to `/login`.
-
-## Data Storage
-
-| Data | Storage |
-| --- | --- |
-| Users, friends, requests | Supabase tables |
-| Clans and memberships | Supabase tables |
-| Time Capsules | Supabase tables |
-| Chat groups and messages | Supabase tables |
-| Profile activity and streak history | Supabase `user_activity` |
-| Profile images | Supabase Storage `profilepics` bucket |
-| Current login session | Browser localStorage |
-| Theme preference | Browser localStorage |
-| XP popup notifications | Browser localStorage |
-| Rabbit Hole demo progress | Component state; resets on refresh |
-| Power Up Hunt progress | Component state; resets on refresh |
-
-Successful Judge0 executions are recorded in `user_activity` and appear in the
-profile streak calendar.
-
-## Judge0 Proxy API
-
-The backend exposes:
-
-```text
-GET  /api/judge0/health
-GET  /api/judge0/languages
-POST /api/judge0/run
+```http
+POST /api/typhon/run
 ```
 
-Example run request:
+Runs the selected source code against custom input. The input, source, and
+result are not persisted by CodeArena.
 
-```json
-{
-  "languageId": 63,
-  "sourceCode": "console.log('Hello, CodeArena');",
-  "stdin": ""
-}
+### Submit
+
+```http
+POST /api/problems/:problemId/submit
 ```
 
-Network access is disabled inside Judge0 submissions. Source code, stdin,
-execution time, memory, and request sizes are limited by `backend/judge0.js`
-and `judge0/judge0.conf.example`.
+The backend:
 
-## Dark Mode
+1. Loads hidden test cases using the Supabase service-role key.
+2. Executes every case in an isolated Typhon container.
+3. Accepts only when every expected output matches.
+4. Stores one submission record.
+5. Updates acceptance rate, solved state, activity, and first-solve XP.
 
-The floating sun/moon button switches the complete application between light
-and dark themes. The selected theme is stored in localStorage and is preserved
-after logout.
+Hidden tests make unrelated or hard-coded solutions substantially harder to
+accept. Like every test-based judge, correctness is defined by the completeness
+of the test suite, so add edge cases whenever a weak solution is discovered.
 
-## Production Readiness
+Complexity shown after submission includes the expected problem complexity and
+a clearly labelled static source estimate. Static complexity analysis is
+heuristic and does not determine acceptance.
 
-CodeArena is currently a prototype. Before deploying publicly:
+## XP Rewards
 
-1. Replace the custom `lusers` login system with Supabase Auth or another
-   secure authentication provider.
-2. Never store plaintext passwords.
-3. Enable Row Level Security and add policies for every Supabase table.
-4. Move all Supabase project configuration to environment variables.
-5. Use the service-role key only on the backend.
-6. Restrict backend CORS origins to deployed frontend domains.
-7. Add authorization checks to Socket.IO rooms and group operations.
-8. Add rate limiting, validation, logging, monitoring, and automated tests.
-9. Persist Rabbit Hole progress and game rewards in secured database tables.
+| Difficulty | First-solve XP |
+| --- | ---: |
+| Easy | 20 |
+| Medium | 50 |
+| Hard | 100 |
 
-## Troubleshooting
+Repeated accepted submissions update metrics but do not award the problem XP
+again.
 
-### Judge0 is offline
+## Security Notes
 
-Confirm Docker Desktop is running, then run:
+The project currently uses a custom `lusers` session stored in browser
+localStorage. Before production:
 
-```powershell
-npm run judge0:up
-```
-
-Check:
-
-```text
-http://localhost:2358/docs
-http://localhost:4000/api/judge0/health
-```
-
-### Chat shows Socket offline
-
-Start the backend:
-
-```powershell
-npm run start:socket
-```
-
-Confirm `.env.local` contains:
-
-```env
-REACT_APP_SOCKET_URL=http://localhost:4000
-```
-
-Restart the React development server after changing `.env.local`.
-
-### Judge0 requests use the wrong backend port
-
-Set:
-
-```env
-REACT_APP_API_URL=http://localhost:4000
-```
-
-Then restart `npm start`.
-
-### Friends appear in Profile but not Chat
-
-Confirm:
-
-- The user IDs in `friends.user1_id` and `friends.user2_id` match `lusers.id`.
-- Both users still exist in `lusers`.
-- Supabase permits selecting from `friends` and `lusers`.
-
-### Profile streak calendar is empty
-
-Run `backend/profile-activity-schema.sql` or the combined
-`backend/supabase-schema.sql`, then complete a successful Judge0 run.
-
-## License
-
-No license has been added yet. Add a license before distributing or accepting
-external contributions.
+1. Migrate to Supabase Auth.
+2. Add user-scoped RLS policies.
+3. Keep the service-role key backend-only.
+4. Restrict backend CORS origins.
+5. Review and expand hidden test suites.
+6. Keep Typhon Docker network isolation and resource limits enabled.

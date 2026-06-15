@@ -112,7 +112,7 @@ export default function Signup() {
           </p>
           <div className="signup-checklist">
             <span>Practice by difficulty</span>
-            <span>Run code with Judge0</span>
+            <span>Judge code with Typhon</span>
             <span>Join clans and chat</span>
           </div>
         </section>

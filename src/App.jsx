@@ -11,7 +11,9 @@ import Signup from "./pages/Signup";
 import Preview from "./pages/Preview";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
+import CareerLoadout from "./pages/CareerLoadout";
 import Clan from "./pages/Clan";
+import TimeCapsules from "./pages/TimeCapsules";
 import Chat from "./pages/Chat";
 import Problem from "./pages/Problem";
 import RabbitHole from "./pages/RabbitHole";
@@ -130,6 +132,15 @@ export default function App() {
         />
 
         <Route
+          path="/career-loadout"
+          element={
+            <RequireAuth>
+              <CareerLoadout />
+            </RequireAuth>
+          }
+        />
+
+        <Route
           path="/notifications"
           element={
             <RequireAuth>
@@ -143,6 +154,15 @@ export default function App() {
           element={
             <RequireAuth>
               <Clan />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/time-capsules"
+          element={
+            <RequireAuth>
+              <TimeCapsules />
             </RequireAuth>
           }
         />

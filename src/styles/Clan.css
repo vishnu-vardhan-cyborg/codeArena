@@ -68,6 +68,10 @@
   align-items: start;
 }
 
+.capsule-page-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .clan-rail {
   display: grid;
   gap: 14px;

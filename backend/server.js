@@ -1,7 +1,9 @@
 const http = require("http");
 const { Server } = require("socket.io");
-const { handleJudge0Request, sendJson } = require("./judge0");
-const { supabase } = require("./supabase");
+const { readJsonBody, sendJson } = require("./http");
+const { getProblem, judgeSubmission, listProblems } = require("./problems");
+const { adminKeyType, supabase } = require("./supabase");
+const { executeTyphon, getLanguages, requestTyphon } = require("./typhon");
 
 const PORT = Number(process.env.SOCKET_PORT) || 4000;
 const MAX_ROOM_HISTORY = 100;
@@ -31,19 +33,64 @@ const requestHandler = async (request, response) => {
 
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
 
-  if (url.pathname.startsWith("/api/judge0/")) {
-    try {
-      const handled = await handleJudge0Request(request, response, url.pathname);
-
-      if (handled) {
-        return;
-      }
-    } catch (error) {
-      sendJson(response, error.statusCode || 503, {
-        error: error.message,
+  try {
+    if (request.method === "GET" && url.pathname === "/api/typhon/health") {
+      sendJson(response, 200, {
+        ok: true,
+        languages: await requestTyphon("/languages", {}, 5000),
       });
       return;
     }
+
+    if (request.method === "GET" && url.pathname === "/api/typhon/languages") {
+      sendJson(response, 200, { languages: await getLanguages() });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/typhon/run") {
+      const payload = await readJsonBody(request);
+      sendJson(response, 200, await executeTyphon(payload));
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/problems") {
+      sendJson(response, 200, {
+        problems: await listProblems(url.searchParams.get("userId")),
+      });
+      return;
+    }
+
+    const problemMatch = url.pathname.match(/^\/api\/problems\/([^/]+)$/);
+    if (request.method === "GET" && problemMatch) {
+      sendJson(response, 200, {
+        problem: await getProblem(
+          decodeURIComponent(problemMatch[1]),
+          url.searchParams.get("userId")
+        ),
+      });
+      return;
+    }
+
+    const submissionMatch = url.pathname.match(
+      /^\/api\/problems\/([^/]+)\/submit$/
+    );
+    if (request.method === "POST" && submissionMatch) {
+      const payload = await readJsonBody(request);
+      sendJson(
+        response,
+        200,
+        await judgeSubmission({
+          ...payload,
+          problemId: decodeURIComponent(submissionMatch[1]),
+        })
+      );
+      return;
+    }
+  } catch (error) {
+    sendJson(response, error.statusCode || 503, {
+      error: error.message,
+    });
+    return;
   }
 
   sendJson(response, 404, {
@@ -355,4 +402,5 @@ io.on("connection", (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`CodeArena backend running on port ${PORT}`);
+  console.log(`Supabase backend admin key: ${adminKeyType}`);
 });

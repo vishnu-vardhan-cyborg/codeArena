@@ -16,14 +16,15 @@
     "react-scripts": "5.0.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "three": "^0.184.0",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "start:socket": "node backend/server.js",
-    "judge0:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File judge0/setup.ps1",
-    "judge0:up": "docker compose -f judge0/docker-compose.yml up -d db redis && docker compose -f judge0/docker-compose.yml up -d",
-    "judge0:down": "docker compose -f judge0/docker-compose.yml down",
+    "typhon:install": "python -m pip install -r Typhon/runner/requirements.txt",
+    "typhon:build": "cd Typhon/runner && python scripts/build_sandboxes.py",
+    "typhon:start": "cd Typhon/runner && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

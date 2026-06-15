@@ -70,26 +70,44 @@
 }
 
 .home-player-summary {
+  width: 100%;
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   margin: 22px 0;
+  border: 0;
   border-top: 1px solid #2a4148;
   border-bottom: 1px solid #2a4148;
   padding: 15px 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.home-player-summary:hover,
+.home-player-summary:focus-visible {
+  background: #182f35;
+}
+
+.home-player-summary > span,
+.home-player-summary > img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
 }
 
 .home-player-summary > span {
-  width: 42px;
-  height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
   background: #ef6655;
   color: #102027;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.home-player-summary > img {
+  object-fit: cover;
 }
 
 .home-player-summary div {
@@ -139,7 +157,7 @@
 }
 
 .home-primary-nav button:hover:not(:disabled),
-.home-account-nav button:hover,
+.home-account-nav button:hover:not(:disabled),
 .home-primary-nav .active-home-nav {
   background: #20363d;
 }
@@ -176,6 +194,11 @@
 
 .home-account-nav .logout-nav {
   color: #ff9c90;
+}
+
+.home-account-nav .settings-nav {
+  color: #819397;
+  cursor: not-allowed;
 }
 
 .home-content {
@@ -566,7 +589,7 @@
 .home-dashboard-panel .problem-row {
   min-height: 66px;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto 20px;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto 20px;
   gap: 11px;
   border-color: #e1e7e7;
   padding: 10px 12px;
@@ -602,6 +625,12 @@
 
 .problem-arrow {
   color: #9aa6a8;
+}
+
+.problem-solved {
+  display: inline-grid;
+  place-items: center;
+  color: #118b7c;
 }
 
 .home-side-rail {
@@ -687,6 +716,17 @@
   color: #405055;
   font-size: 9px;
   font-weight: 900;
+}
+
+.home-side-rail .home-user-actions {
+  display: grid;
+  gap: 4px;
+}
+
+.home-side-rail .home-user-actions .following {
+  border-color: #79c8bb;
+  background: #e4f5f1;
+  color: #087565;
 }
 
 .home-search-empty {
@@ -855,7 +895,7 @@
   }
 
   .home-dashboard-panel .problem-row {
-    grid-template-columns: 25px minmax(0, 1fr) auto;
+    grid-template-columns: 25px minmax(0, 1fr) auto auto;
   }
 
   .problem-arrow {

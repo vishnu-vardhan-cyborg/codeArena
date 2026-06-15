@@ -4,30 +4,33 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  CheckCircle2,
   Code2,
   Flame,
   Gamepad2,
   Home as HomeIcon,
+  Hourglass,
   LogOut,
   Menu,
   MessageCircle,
   PenSquare,
   Search,
+  Settings,
   Shield,
   Sparkles,
   Swords,
   Trophy,
-  UserRound,
   UsersRound,
   X,
 } from "lucide-react";
 import { supabase } from "../supabase";
-import { DEMO_PROBLEMS } from "../data/problems";
+import { loadProblems } from "../features/problems/problemApi";
 import "../styles/Home.css";
 
 const mainNavigation = [
   { label: "Home", path: "/home", icon: HomeIcon, active: true },
   { label: "Clans", path: "/clans", icon: Shield },
+  { label: "Time Capsules", path: "/time-capsules", icon: Hourglass },
   { label: "Chat", path: "/chat", icon: MessageCircle },
   { label: "Rabbit Hole", path: "/rabbit-hole", icon: BookOpen },
   { label: "Power Up Hunt", path: "/power-up-hunt", icon: Gamepad2 },
@@ -36,7 +39,7 @@ const mainNavigation = [
 const quickActions = [
   {
     label: "Solve a problem",
-    detail: "Practice with Judge0",
+    detail: "Practice with Typhon",
     target: "problems",
     icon: Code2,
     tone: "coral",
@@ -77,6 +80,9 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [problemSearch, setProblemSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("All");
+  const [problems, setProblems] = useState([]);
+  const [problemLoadError, setProblemLoadError] = useState("");
+  const [problemsLoading, setProblemsLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const debounceTimer = useRef(null);
@@ -116,9 +122,16 @@ export default function Home() {
       let results = data || [];
 
       if (results.length > 0) {
-        const { data: friendRelations } = await supabase
-          .from("friends")
-          .select("*");
+        const [
+          { data: friendRelations },
+          { data: followRelations },
+        ] = await Promise.all([
+          supabase.from("friends").select("*"),
+          supabase
+            .from("user_follows")
+            .select("following_id")
+            .eq("follower_id", String(currentUser.id)),
+        ]);
         const currentUserId = String(currentUser.id);
         const friendIds = new Set(
           (friendRelations || [])
@@ -135,10 +148,16 @@ export default function Home() {
               )
             )
         );
+        const followingIds = new Set(
+          (followRelations || []).map((relation) =>
+            String(relation.following_id)
+          )
+        );
 
         results = results.map((user) => ({
           ...user,
           isFriend: friendIds.has(String(user.id)),
+          isFollowing: followingIds.has(String(user.id)),
         }));
       }
 
@@ -149,6 +168,28 @@ export default function Home() {
   useEffect(() => {
     return () => clearTimeout(debounceTimer.current);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    loadProblems(currentUser.id)
+      .then((loadedProblems) => {
+        if (!active) return;
+        setProblems(loadedProblems);
+        setProblemLoadError("");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setProblemLoadError(error.message);
+      })
+      .finally(() => {
+        if (active) setProblemsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser.id]);
 
   const sendFriendRequest = async (receiverId) => {
     setMessage("");
@@ -181,7 +222,41 @@ export default function Home() {
     setMessage("Friend request sent");
   };
 
-  const filteredProblems = DEMO_PROBLEMS.filter((problem) => {
+  const toggleFollow = async (user) => {
+    setMessage("");
+    const relation = {
+      follower_id: String(currentUser.id),
+      following_id: String(user.id),
+    };
+
+    const { error } = user.isFollowing
+      ? await supabase
+          .from("user_follows")
+          .delete()
+          .eq("follower_id", relation.follower_id)
+          .eq("following_id", relation.following_id)
+      : await supabase.from("user_follows").insert([relation]);
+
+    if (error) {
+      setMessage(
+        error.code === "PGRST205" || error.code === "42P01"
+          ? "Run backend/social-schema.sql in Supabase to enable following."
+          : error.message
+      );
+      return;
+    }
+
+    setUsers((currentUsers) =>
+      currentUsers.map((currentResult) =>
+        String(currentResult.id) === String(user.id)
+          ? { ...currentResult, isFollowing: !user.isFollowing }
+          : currentResult
+      )
+    );
+    setMessage(user.isFollowing ? "Unfollowed player" : "Following player");
+  };
+
+  const filteredProblems = problems.filter((problem) => {
     const query = problemSearch.trim().toLowerCase();
     const matchesDifficulty =
       difficultyFilter === "All" || problem.difficulty === difficultyFilter;
@@ -231,13 +306,24 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="home-player-summary">
-          <span>{(currentUser.uusername || currentUser.username || "P")[0]}</span>
+        <button
+          className="home-player-summary"
+          type="button"
+          aria-label="Open profile"
+          onClick={() => goTo("/profile")}
+        >
+          {currentUser.profile_pic ? (
+            <img src={currentUser.profile_pic} alt="" />
+          ) : (
+            <span>
+              {(currentUser.uusername || currentUser.username || "P")[0]}
+            </span>
+          )}
           <div>
             <strong>{currentUser.uusername || currentUser.username}</strong>
             <small>{currentUser.xp || 0} XP</small>
           </div>
-        </div>
+        </button>
 
         <nav className="home-primary-nav" aria-label="Main navigation">
           <span className="home-nav-label">Arena</span>
@@ -252,10 +338,9 @@ export default function Home() {
               <span>{label}</span>
             </button>
           ))}
-          <button className="coming-soon-nav" type="button" disabled>
+          <button type="button" onClick={() => goTo("/profile#posts")}>
             <PenSquare size={18} />
             <span>Post</span>
-            <small>Coming soon</small>
           </button>
         </nav>
 
@@ -265,9 +350,14 @@ export default function Home() {
             <Bell size={18} />
             <span>Notifications</span>
           </button>
-          <button type="button" onClick={() => goTo("/profile")}>
-            <UserRound size={18} />
-            <span>Profile</span>
+          <button
+            className="settings-nav"
+            type="button"
+            title="Settings is coming soon"
+            disabled
+          >
+            <Settings size={18} />
+            <span>Settings</span>
           </button>
           <button className="logout-nav" type="button" onClick={logout}>
             <LogOut size={18} />
@@ -377,9 +467,11 @@ export default function Home() {
                 <div>
                   <span className="home-section-label">Practice arena</span>
                   <h2>Problem set</h2>
-                  <p>Pick a challenge and run your solution with Judge0.</p>
+                  <p>Pick a challenge and judge your solution with Typhon.</p>
                 </div>
-                <strong>{filteredProblems.length} available</strong>
+                <strong>
+                  {problemsLoading ? "Loading..." : `${filteredProblems.length} available`}
+                </strong>
               </div>
 
               <div className="home-problem-tools">
@@ -414,7 +506,11 @@ export default function Home() {
               </div>
 
               <div className="problem-list">
-                {filteredProblems.length === 0 ? (
+                {problemsLoading ? (
+                  <p className="empty-state">Loading problem catalog...</p>
+                ) : problemLoadError ? (
+                  <p className="empty-state">{problemLoadError}</p>
+                ) : filteredProblems.length === 0 ? (
                   <p className="empty-state">No matching problems.</p>
                 ) : (
                   filteredProblems.map((problem, index) => (
@@ -428,8 +524,15 @@ export default function Home() {
                       </span>
                       <div>
                         <strong>{problem.title}</strong>
-                        <span>Acceptance {problem.acceptance}</span>
+                        <span>
+                          Acceptance {problem.acceptance} · {problem.xp_reward} XP
+                        </span>
                       </div>
+                      {problem.solved && (
+                        <span className="problem-solved" title="Solved">
+                          <CheckCircle2 size={15} />
+                        </span>
+                      )}
                       <span
                         className={`difficulty-badge ${problem.difficulty.toLowerCase()}`}
                       >
@@ -466,13 +569,7 @@ export default function Home() {
                 {message && <p className="home-inline-message">{message}</p>}
 
                 <div className="users-grid">
-                  {!search.trim() ? (
-                    <div className="home-search-empty">
-                      <UsersRound size={22} />
-                      <strong>Find your coding crew</strong>
-                      <span>Search by username to connect.</span>
-                    </div>
-                  ) : (
+                  {search.trim() &&
                     users.map((user) => (
                       <article key={user.id} className="user-card">
                         <span className="user-card-avatar">
@@ -483,18 +580,25 @@ export default function Home() {
                           <p>{user.age ? `Age ${user.age}` : "Arena player"}</p>
                         </div>
 
-                        {user.isFriend ? (
-                          <button className="disabled" disabled>
-                            Buddy
+                        <div className="home-user-actions">
+                          {user.isFriend ? (
+                            <button className="disabled" disabled>
+                              Buddy
+                            </button>
+                          ) : (
+                            <button onClick={() => sendFriendRequest(user.id)}>
+                              Add
+                            </button>
+                          )}
+                          <button
+                            className={user.isFollowing ? "following" : ""}
+                            onClick={() => toggleFollow(user)}
+                          >
+                            {user.isFollowing ? "Following" : "Follow"}
                           </button>
-                        ) : (
-                          <button onClick={() => sendFriendRequest(user.id)}>
-                            Add
-                          </button>
-                        )}
+                        </div>
                       </article>
-                    ))
-                  )}
+                    ))}
                 </div>
               </section>
 

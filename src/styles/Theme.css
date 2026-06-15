@@ -39,13 +39,54 @@
   color: #e6eeee;
 }
 
+[data-theme="dark"] .career-loadout-page {
+  background: #0d1518;
+}
+
+[data-theme="dark"] .career-loadout-page .loadout-panel,
+[data-theme="dark"] .career-loadout-page .loadout-stat-strip article {
+  border-color: #35464b;
+  background: #172226;
+  color: #e6eeee;
+}
+
+[data-theme="dark"] .career-loadout-page .language-loadout-list article,
+[data-theme="dark"] .career-loadout-page .influence-orbit > div,
+[data-theme="dark"] .career-loadout-page .achievement-grid article,
+[data-theme="dark"] .career-loadout-page .momentum-chart {
+  border-color: #35464b;
+  background: #1b292d;
+  color: #e6eeee;
+}
+
+[data-theme="dark"] .career-loadout-page .achievement-grid article.unlocked {
+  border-color: #397b70;
+  background: #18322f;
+}
+
+[data-theme="dark"] .career-loadout-page .loadout-panel-heading h2,
+[data-theme="dark"] .career-loadout-page .loadout-stat-strip strong,
+[data-theme="dark"] .career-loadout-page .influence-orbit strong {
+  color: #f0f5f5;
+}
+
+[data-theme="dark"] .career-loadout-page .mission-list article {
+  border-color: #35464b;
+}
+
 [data-theme="dark"] .home-topbar,
 [data-theme="dark"] .home-dashboard-panel,
 [data-theme="dark"] .home-quick-action,
 [data-theme="dark"] .profile-identity-panel,
 [data-theme="dark"] .profile-stat-grid article,
 [data-theme="dark"] .streak-panel,
-[data-theme="dark"] .profile-friends-panel,
+[data-theme="dark"] .profile-network-panel,
+[data-theme="dark"] .profile-posts-panel,
+[data-theme="dark"] .profile-post-modal,
+[data-theme="dark"] .profile-post-tabs,
+[data-theme="dark"] .profile-post-composer > div,
+[data-theme="dark"] .notification-group,
+[data-theme="dark"] .notifications-back-button,
 [data-theme="dark"] .rabbit-header,
 [data-theme="dark"] .learning-path-header,
 [data-theme="dark"] .trail-card,
@@ -59,6 +100,7 @@
 [data-theme="dark"] .chat-back-button,
 [data-theme="dark"] .problem-description,
 [data-theme="dark"] .code-runner-panel,
+[data-theme="dark"] .submission-report,
 [data-theme="dark"] .chat-sidebar,
 [data-theme="dark"] .chat-panel,
 [data-theme="dark"] .group-panel,
@@ -74,6 +116,8 @@
 [data-theme="dark"] .chat-page .message-bubble,
 [data-theme="dark"] .chat-page .member-option,
 [data-theme="dark"] .profile-friend-grid article,
+[data-theme="dark"] .profile-post-list article,
+[data-theme="dark"] .notification-card,
 [data-theme="dark"] .rabbit-surface-status div {
   border-color: #35464b;
   background: #1b292d;
@@ -181,7 +225,9 @@
 [data-theme="dark"] .profile-name-block h2,
 [data-theme="dark"] .profile-stat-grid strong,
 [data-theme="dark"] .streak-panel-heading h2,
-[data-theme="dark"] .profile-friends-panel h2,
+[data-theme="dark"] .profile-panel-heading h2,
+[data-theme="dark"] .notification-section-heading h2,
+[data-theme="dark"] .notification-card strong,
 [data-theme="dark"] .rabbit-header h1,
 [data-theme="dark"] .rabbit-intro h2,
 [data-theme="dark"] .trail-card h2,
@@ -194,6 +240,9 @@
 
 [data-theme="dark"] .profile-back-button,
 [data-theme="dark"] .profile-upload,
+[data-theme="dark"] .profile-panel-heading > button,
+[data-theme="dark"] .profile-post-actions button,
+[data-theme="dark"] .profile-post-modal-heading > button,
 [data-theme="dark"] .rabbit-back-button,
 [data-theme="dark"] .learning-path-header > button,
 [data-theme="dark"] .home-menu-button,
@@ -204,6 +253,8 @@
 }
 
 [data-theme="dark"] .profile-details div,
+[data-theme="dark"] .profile-details > button,
+[data-theme="dark"] .profile-post-composer > div,
 [data-theme="dark"] .stage-status,
 [data-theme="dark"] .trail-card-footer,
 [data-theme="dark"] .chat-page .chat-panel-header,
@@ -211,7 +262,8 @@
   border-color: #35464b;
 }
 
-[data-theme="dark"] .profile-details dd,
+[data-theme="dark"] .profile-details > div > strong,
+[data-theme="dark"] .profile-details > button > strong,
 [data-theme="dark"] .chat-empty-state strong,
 [data-theme="dark"] .home-search-empty strong {
   color: #dce6e6;
@@ -219,6 +271,7 @@
 
 [data-theme="dark"] .profile-empty,
 [data-theme="dark"] .profile-loading,
+[data-theme="dark"] .notifications-empty,
 [data-theme="dark"] .home-search-empty {
   border-color: #405157;
   background: #121e22;
@@ -233,6 +286,26 @@
 [data-theme="dark"] .difficulty-filter .active-filter {
   background: #26373b;
   color: #fff;
+}
+
+[data-theme="dark"] .profile-post-tabs {
+  background: #111c20;
+}
+
+[data-theme="dark"] .profile-post-tabs button.active {
+  background: #26373b;
+  color: #a9e2d8;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .profile-post-tabs span {
+  background: #35464b;
+}
+
+[data-theme="dark"] .profile-panel-heading > .profile-create-post-button {
+  border-color: #397b70;
+  background: #21564e;
+  color: #e6eeee;
 }
 
 [data-theme="dark"] .clan-page,
@@ -301,6 +374,34 @@
   color: #e6eeee;
 }
 
+[data-theme="dark"] .notifications-page {
+  background: #0d1518;
+  color: #e6eeee;
+}
+
+[data-theme="dark"] .notification-card.unread {
+  border-left-color: #61d3c2;
+  background: #1b302f;
+}
+
+[data-theme="dark"] .notification-card blockquote {
+  background: #15322e;
+  color: #bed0d0;
+}
+
+[data-theme="dark"] .profile-post-list p,
+[data-theme="dark"] .notification-card p,
+[data-theme="dark"] .profile-panel-heading p,
+[data-theme="dark"] .notifications-header p {
+  color: #9aabad;
+}
+
+[data-theme="dark"] .home-side-rail .home-user-actions .following {
+  border-color: #397b70;
+  background: #21564e;
+  color: #c7eee7;
+}
+
 [data-theme="dark"] .page > button,
 [data-theme="dark"] .notification-heading button,
 [data-theme="dark"] .action-buttons button {
@@ -317,9 +418,24 @@
 
 [data-theme="dark"] .problem-description,
 [data-theme="dark"] .code-runner-toolbar,
-[data-theme="dark"] .stdin-panel {
+[data-theme="dark"] .stdin-panel,
+[data-theme="dark"] .problem-target-complexity > div,
+[data-theme="dark"] .submission-metrics article,
+[data-theme="dark"] .submission-complexity > div {
   border-color: #35464b;
   background: #172226;
+}
+
+[data-theme="dark"] .submission-report-heading h2,
+[data-theme="dark"] .problem-target-complexity strong {
+  color: #f0f5f5;
+}
+
+[data-theme="dark"] .problem-run-actions .secondary-run,
+[data-theme="dark"] .problem-solved-label {
+  border-color: #397b70;
+  background: #18322f;
+  color: #a9e2d8;
 }
 
 [data-theme="dark"] .example-block pre {

@@ -58,12 +58,14 @@ const mapCapsuleRows = (capsuleRows = [], memberRows = []) =>
       })),
   }));
 
-export default function Clan() {
+export default function Clan({ pageMode = "clans" }) {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("loggedInUser"));
   const currentUserId = String(currentUser.id);
 
-  const [activeView, setActiveView] = useState("capsules");
+  const [activeView, setActiveView] = useState(
+    pageMode === "capsules" ? "capsules" : "clans"
+  );
   const [clans, setClans] = useState([]);
   const [capsules, setCapsules] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -178,13 +180,17 @@ export default function Clan() {
     setIsLoading(true);
 
     try {
-      await Promise.all([loadClans(), loadCapsules(), loadUsersAndFriends()]);
+      await Promise.all(
+        pageMode === "capsules"
+          ? [loadCapsules(), loadUsersAndFriends()]
+          : [loadClans(), loadUsersAndFriends()]
+      );
     } catch (error) {
       showMessage(error.message, "error");
     } finally {
       setIsLoading(false);
     }
-  }, [loadCapsules, loadClans, loadUsersAndFriends]);
+  }, [loadCapsules, loadClans, loadUsersAndFriends, pageMode]);
 
   useEffect(() => {
     loadPage();
@@ -235,12 +241,6 @@ export default function Clan() {
         (member) =>
           member.userId === currentUserId && member.status !== "declined"
       )
-  );
-
-  const pendingInvites = visibleCapsules.filter((capsule) =>
-    capsule.members.some(
-      (member) => member.userId === currentUserId && member.status === "invited"
-    )
   );
 
   const confirmBeyondRecommendedLimit = () => {
@@ -535,9 +535,15 @@ export default function Clan() {
     <div className="page clan-page">
       <div className="clan-page-header">
         <div>
-          <span className="clan-eyebrow">Social competition</span>
-          <h1>Clans & Time Capsules</h1>
-          <p>Build a team, commit to a challenge, and protect your streak.</p>
+          <span className="clan-eyebrow">
+            {pageMode === "capsules" ? "Challenge commitments" : "Social competition"}
+          </span>
+          <h1>{pageMode === "capsules" ? "Time Capsules" : "Clans"}</h1>
+          <p>
+            {pageMode === "capsules"
+              ? "Commit to a learning challenge with friends and protect your streak."
+              : "Find a team, compare clan XP, and compete together."}
+          </p>
         </div>
         <button className="clan-back-button" onClick={() => navigate("/home")}>
           Back
@@ -546,54 +552,50 @@ export default function Clan() {
 
       {message && <p className={`clan-message ${messageType}`}>{message}</p>}
 
-      <div className="clan-layout">
-        <aside className="clan-rail">
-          <div className="my-clan-summary">
-            <span>Current clan</span>
-            <strong>{myClan?.name || "No clan joined"}</strong>
-            <small>{myClan ? `[${myClan.tag}]` : "Choose your team"}</small>
-          </div>
+      <div
+        className={
+          pageMode === "capsules" ? "clan-layout capsule-page-layout" : "clan-layout"
+        }
+      >
+        {pageMode === "clans" && (
+          <aside className="clan-rail">
+            <div className="my-clan-summary">
+              <span>Current clan</span>
+              <strong>{myClan?.name || "No clan joined"}</strong>
+              <small>{myClan ? `[${myClan.tag}]` : "Choose your team"}</small>
+            </div>
 
-          <nav className="clan-navigation" aria-label="Clan page sections">
-            <button
-              className={activeView === "capsules" ? "active" : ""}
-              onClick={() => setActiveView("capsules")}
-            >
-              Time Capsules
-              {pendingInvites.length > 0 && <b>{pendingInvites.length}</b>}
-            </button>
-            <button
-              className={activeView === "clans" ? "active" : ""}
-              onClick={() => setActiveView("clans")}
-            >
-              Find Clans
-            </button>
-            <button
-              className={activeView === "ranking" ? "active" : ""}
-              onClick={() => setActiveView("ranking")}
-            >
-              Clan Ranking
-            </button>
-            <button
-              className={activeView === "create-clan" ? "active" : ""}
-              onClick={() => setActiveView("create-clan")}
-            >
-              Create Clan
-            </button>
-            <button
-              className={activeView === "aura" ? "active aura-button" : "aura-button"}
-              onClick={() => setActiveView("aura")}
-            >
-              Aura Farming
-              <small>Soon</small>
-            </button>
-          </nav>
-
-          <div className="capsule-focus-note">
-            <strong>{activeJoinedCapsules.length}/3 recommended</strong>
-            <p>Keep active learning tracks focused for better consistency.</p>
-          </div>
-        </aside>
+            <nav className="clan-navigation" aria-label="Clan page sections">
+              <button
+                className={activeView === "clans" ? "active" : ""}
+                onClick={() => setActiveView("clans")}
+              >
+                Find Clans
+              </button>
+              <button
+                className={activeView === "ranking" ? "active" : ""}
+                onClick={() => setActiveView("ranking")}
+              >
+                Clan Ranking
+              </button>
+              <button
+                className={activeView === "create-clan" ? "active" : ""}
+                onClick={() => setActiveView("create-clan")}
+              >
+                Create Clan
+              </button>
+              <button
+                className={
+                  activeView === "aura" ? "active aura-button" : "aura-button"
+                }
+                onClick={() => setActiveView("aura")}
+              >
+                Aura Farming
+                <small>Soon</small>
+              </button>
+            </nav>
+          </aside>
+        )}
 
         <main className="clan-main">
           {isLoading && <p className="clan-loading">Loading arena data...</p>}

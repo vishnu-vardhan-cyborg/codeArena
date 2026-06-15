@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Archive,
+  Gamepad2,
+  Plus,
+  RotateCcw,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { supabase } from "../supabase";
 import "../styles/Profile.css";
 
@@ -7,6 +16,9 @@ const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
 const PROFILE_PICS_BUCKET = "profilepics";
 const XP_LEVEL_SIZE = 100;
 const CALENDAR_WEEKS = 16;
+const SOCIAL_TABLE_MISSING_CODES = new Set(["PGRST205", "42P01"]);
+const isRlsError = (error) =>
+  error?.message?.toLowerCase().includes("row-level security");
 
 const getProfilePicPath = (url) => {
   if (!url) {
@@ -94,13 +106,22 @@ export default function Profile() {
 
   const [profile, setProfile] = useState(null);
   const [friends, setFriends] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [networkView, setNetworkView] = useState("");
+  const [postContent, setPostContent] = useState("");
+  const [postView, setPostView] = useState("active");
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [postActionId, setPostActionId] = useState("");
   const [editedName, setEditedName] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
   const [editMode, setEditMode] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [activitySetupMissing, setActivitySetupMissing] = useState(false);
+  const [socialSetupMissing, setSocialSetupMissing] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -178,6 +199,55 @@ export default function Profile() {
     setActivity(data || []);
   }, [currentUserId]);
 
+  const loadSocial = useCallback(async () => {
+    if (!currentUserId) return;
+
+    const [
+      { data: followRelations, error: followError },
+      { data: postData, error: postError },
+    ] = await Promise.all([
+      supabase
+        .from("user_follows")
+        .select("follower_id")
+        .eq("following_id", currentUserId),
+      supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (followError || postError) {
+      if (
+        SOCIAL_TABLE_MISSING_CODES.has(followError?.code) ||
+        SOCIAL_TABLE_MISSING_CODES.has(postError?.code)
+      ) {
+        setSocialSetupMissing(true);
+      }
+      return;
+    }
+
+    const followerIds = [
+      ...new Set((followRelations || []).map((item) => String(item.follower_id))),
+    ];
+
+    let followerProfiles = [];
+    if (followerIds.length > 0) {
+      const { data, error } = await supabase
+        .from("lusers")
+        .select("*")
+        .in("id", followerIds);
+
+      if (!error) {
+        followerProfiles = data || [];
+      }
+    }
+
+    setFollowers(followerProfiles);
+    setPosts(postData || []);
+    setSocialSetupMissing(false);
+  }, [currentUserId]);
+
   useEffect(() => {
     if (!currentUserId) {
       navigate("/login", { replace: true });
@@ -187,7 +257,46 @@ export default function Profile() {
     loadProfile();
     loadFriends();
     loadActivity();
-  }, [currentUserId, loadActivity, loadFriends, loadProfile, navigate]);
+    loadSocial();
+  }, [
+    currentUserId,
+    loadActivity,
+    loadFriends,
+    loadProfile,
+    loadSocial,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (!profile || window.location.hash !== "#posts") return;
+
+    requestAnimationFrame(() => {
+      document.getElementById("posts")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      setPostModalOpen(true);
+    });
+  }, [profile]);
+
+  useEffect(() => {
+    if (!postModalOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setPostModalOpen(false);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [postModalOpen]);
 
   const calendarDays = useMemo(getCalendarDays, []);
 
@@ -316,7 +425,11 @@ export default function Profile() {
       event.target.value = "";
       setUploading(false);
       setMessageType("error");
-      setMessage(uploadError.message);
+      setMessage(
+        isRlsError(uploadError)
+          ? "Profile picture upload is blocked by Supabase Storage policies. Run backend/profile-pics-storage-schema.sql."
+          : uploadError.message
+      );
       return;
     }
 
@@ -337,7 +450,11 @@ export default function Profile() {
       event.target.value = "";
       setUploading(false);
       setMessageType("error");
-      setMessage(error.message);
+      setMessage(
+        isRlsError(error)
+          ? "The profile image uploaded, but updating lusers.profile_pic is blocked by its Supabase policy."
+          : error.message
+      );
       return;
     }
 
@@ -356,6 +473,107 @@ export default function Profile() {
     setMessage("Profile picture updated");
   };
 
+  const createPost = async () => {
+    const content = postContent.trim();
+    setMessage("");
+
+    if (!content) {
+      setMessageType("error");
+      setMessage("Write something valuable before sharing.");
+      return;
+    }
+
+    if (content.length > 2000) {
+      setMessageType("error");
+      setMessage("Posts can contain up to 2,000 characters.");
+      return;
+    }
+
+    setIsPosting(true);
+    const { data, error } = await supabase
+      .from("posts")
+      .insert([{ user_id: currentUserId, content }])
+      .select("*")
+      .single();
+    setIsPosting(false);
+
+    if (error) {
+      if (SOCIAL_TABLE_MISSING_CODES.has(error.code)) {
+        setSocialSetupMissing(true);
+      }
+      setMessageType("error");
+      setMessage(error.message);
+      return;
+    }
+
+    setPosts((existingPosts) => [data, ...existingPosts]);
+    setPostContent("");
+    setPostModalOpen(false);
+    setMessageType("success");
+    setMessage("Post shared with your network.");
+  };
+
+  const archivePost = async (post, shouldArchive) => {
+    setPostActionId(post.id);
+    setMessage("");
+
+    const archivedAt = shouldArchive ? new Date().toISOString() : null;
+    const { data, error } = await supabase
+      .from("posts")
+      .update({ archived_at: archivedAt, updated_at: new Date().toISOString() })
+      .eq("id", post.id)
+      .eq("user_id", currentUserId)
+      .select("*")
+      .single();
+
+    setPostActionId("");
+
+    if (error) {
+      setMessageType("error");
+      setMessage(
+        error.code === "PGRST204"
+          ? "Run backend/social-schema.sql in Supabase to enable post archiving."
+          : error.message
+      );
+      return;
+    }
+
+    setPosts((existingPosts) =>
+      existingPosts.map((existingPost) =>
+        existingPost.id === post.id ? data : existingPost
+      )
+    );
+    setMessageType("success");
+    setMessage(shouldArchive ? "Post archived." : "Post restored.");
+  };
+
+  const deletePost = async (post) => {
+    if (!window.confirm("Delete this post permanently?")) return;
+
+    setPostActionId(post.id);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("id", post.id)
+      .eq("user_id", currentUserId);
+
+    setPostActionId("");
+
+    if (error) {
+      setMessageType("error");
+      setMessage(error.message);
+      return;
+    }
+
+    setPosts((existingPosts) =>
+      existingPosts.filter((existingPost) => existingPost.id !== post.id)
+    );
+    setMessageType("success");
+    setMessage("Post deleted.");
+  };
+
   if (!profile) {
     return <p className="profile-loading">Loading player profile...</p>;
   }
@@ -364,6 +582,9 @@ export default function Profile() {
   const level = Math.floor(xpValue / XP_LEVEL_SIZE) + 1;
   const levelXp = xpValue % XP_LEVEL_SIZE;
   const progress = Math.min(100, (levelXp / XP_LEVEL_SIZE) * 100);
+  const visiblePosts = posts.filter((post) =>
+    postView === "archived" ? Boolean(post.archived_at) : !post.archived_at
+  );
 
   return (
     <div className="page profile-page">
@@ -426,20 +647,38 @@ export default function Profile() {
             </div>
           )}
 
-          <dl className="profile-details">
+          <div className="profile-details">
             <div>
-              <dt>Email</dt>
-              <dd>{profile.username}</dd>
+              <span>Email</span>
+              <strong>{profile.username}</strong>
             </div>
             <div>
-              <dt>Age</dt>
-              <dd>{profile.age ?? "N/A"}</dd>
+              <span>Age</span>
+              <strong>{profile.age ?? "N/A"}</strong>
             </div>
-            <div>
-              <dt>Friends</dt>
-              <dd>{friends.length}</dd>
-            </div>
-          </dl>
+            <button
+              className={networkView === "friends" ? "active" : ""}
+              type="button"
+              onClick={() =>
+                setNetworkView((view) => (view === "friends" ? "" : "friends"))
+              }
+            >
+              <span>Friends</span>
+              <strong>{friends.length}</strong>
+            </button>
+            <button
+              className={networkView === "followers" ? "active" : ""}
+              type="button"
+              onClick={() =>
+                setNetworkView((view) =>
+                  view === "followers" ? "" : "followers"
+                )
+              }
+            >
+              <span>Followers</span>
+              <strong>{followers.length}</strong>
+            </button>
+          </div>
 
           <div className="level-progress">
             <div>
@@ -451,9 +690,178 @@ export default function Profile() {
             </div>
             <small>{XP_LEVEL_SIZE - levelXp} XP until level {level + 1}</small>
           </div>
+
+          <button
+            className="profile-loadout-button"
+            type="button"
+            onClick={() => navigate("/career-loadout")}
+          >
+            <Gamepad2 size={17} />
+            Open Career Loadout
+          </button>
         </aside>
 
-        <main className="profile-progress-main">
+        <main className="profile-post-column">
+          {networkView && (
+            <section className="profile-network-panel">
+              <div className="profile-panel-heading">
+                <div>
+                  <span className="profile-eyebrow">Your network</span>
+                  <h2>
+                    {networkView === "friends" ? "Friends" : "Followers"}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close network panel"
+                  title="Close"
+                  onClick={() => setNetworkView("")}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+              {(networkView === "friends" ? friends : followers).length === 0 ? (
+                <p className="profile-empty">
+                  {networkView === "friends"
+                    ? "No friends yet."
+                    : "No followers yet."}
+                </p>
+              ) : (
+                <div className="profile-friend-grid">
+                  {(networkView === "friends" ? friends : followers).map(
+                    (person) => (
+                      <article key={person.id}>
+                        <img
+                          src={person.profile_pic || DEFAULT_AVATAR}
+                          alt=""
+                        />
+                        <span>
+                          <strong>{person.uusername || person.username}</strong>
+                          <small>{Number(person.xp || 0)} XP</small>
+                        </span>
+                        {networkView === "friends" && (
+                          <button onClick={() => navigate("/chat")}>Chat</button>
+                        )}
+                      </article>
+                    )
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          <section className="profile-posts-panel" id="posts">
+            <div className="profile-panel-heading">
+              <div>
+                <span className="profile-eyebrow">Share knowledge</span>
+                <h2>Posts</h2>
+                <p>Your learning notes and useful discoveries.</p>
+              </div>
+              <button
+                className="profile-create-post-button"
+                type="button"
+                onClick={() => setPostModalOpen(true)}
+              >
+                <Plus size={16} />
+                Post
+              </button>
+            </div>
+
+            <div className="profile-post-tabs" role="tablist">
+              <button
+                className={postView === "active" ? "active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={postView === "active"}
+                onClick={() => setPostView("active")}
+              >
+                Published
+                <span>{posts.filter((post) => !post.archived_at).length}</span>
+              </button>
+              <button
+                className={postView === "archived" ? "active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={postView === "archived"}
+                onClick={() => setPostView("archived")}
+              >
+                Archived
+                <span>{posts.filter((post) => post.archived_at).length}</span>
+              </button>
+            </div>
+
+            {socialSetupMissing && (
+              <p className="profile-setup-note">
+                Run <strong>backend/social-schema.sql</strong> in Supabase to
+                enable posts, followers, and social notifications.
+              </p>
+            )}
+
+            {visiblePosts.length === 0 ? (
+              <p className="profile-empty">
+                {postView === "archived"
+                  ? "No archived posts."
+                  : "No posts shared yet."}
+              </p>
+            ) : (
+              <div className="profile-post-list">
+                {visiblePosts.map((post) => (
+                  <article key={post.id}>
+                    <div className="profile-post-header">
+                      <img
+                        src={profile.profile_pic || DEFAULT_AVATAR}
+                        alt=""
+                      />
+                      <span>
+                        <strong>{profile.uusername || profile.username}</strong>
+                        <small>
+                          {new Date(post.created_at).toLocaleString()}
+                        </small>
+                      </span>
+                      <div className="profile-post-actions">
+                        <button
+                          type="button"
+                          title={
+                            post.archived_at ? "Restore post" : "Archive post"
+                          }
+                          aria-label={
+                            post.archived_at ? "Restore post" : "Archive post"
+                          }
+                          disabled={postActionId === post.id}
+                          onClick={() => archivePost(post, !post.archived_at)}
+                        >
+                          {post.archived_at ? (
+                            <RotateCcw size={15} />
+                          ) : (
+                            <Archive size={15} />
+                          )}
+                        </button>
+                        <button
+                          className="delete"
+                          type="button"
+                          title="Delete post"
+                          aria-label="Delete post"
+                          disabled={postActionId === post.id}
+                          onClick={() => deletePost(post)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    <p>{post.content}</p>
+                    {post.archived_at && (
+                      <small className="profile-archive-time">
+                        Archived {new Date(post.archived_at).toLocaleString()}
+                      </small>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </main>
+
+        <aside className="profile-progress-panel">
           <section className="profile-stat-grid">
             <article>
               <span>Current streak</span>
@@ -482,7 +890,7 @@ export default function Profile() {
               <div>
                 <span className="profile-eyebrow">Consistency tracker</span>
                 <h2>Calendar streak</h2>
-                <p>Successful Judge0 runs add activity to this calendar.</p>
+                <p>Accepted Typhon submissions add activity to this calendar.</p>
               </div>
               <div className="activity-legend">
                 <span>Less</span>
@@ -535,34 +943,59 @@ export default function Profile() {
               </div>
             </div>
           </section>
-
-          <section className="profile-friends-panel">
-            <div>
-              <span className="profile-eyebrow">Your network</span>
-              <h2>Friends</h2>
-            </div>
-            {friends.length === 0 ? (
-              <p className="profile-empty">No friends yet.</p>
-            ) : (
-              <div className="profile-friend-grid">
-                {friends.map((friend) => (
-                  <article key={friend.id}>
-                    <img
-                      src={friend.profile_pic || DEFAULT_AVATAR}
-                      alt=""
-                    />
-                    <span>
-                      <strong>{friend.uusername || friend.username}</strong>
-                      <small>{Number(friend.xp || 0)} XP</small>
-                    </span>
-                    <button onClick={() => navigate("/chat")}>Chat</button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </main>
+        </aside>
       </div>
+
+      {postModalOpen && (
+        <div
+          className="profile-post-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setPostModalOpen(false);
+            }
+          }}
+        >
+          <section
+            className="profile-post-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-post-modal-title"
+          >
+            <div className="profile-post-modal-heading">
+              <div>
+                <span className="profile-eyebrow">Knowledge drop</span>
+                <h2 id="profile-post-modal-title">Create a post</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Close post composer"
+                title="Close"
+                onClick={() => setPostModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="profile-post-composer">
+              <textarea
+                autoFocus
+                maxLength={2000}
+                placeholder="Share something useful with your network..."
+                value={postContent}
+                onChange={(event) => setPostContent(event.target.value)}
+              />
+              <div>
+                <span>{postContent.length}/2000</span>
+                <button type="button" onClick={createPost} disabled={isPosting}>
+                  <Send size={15} />
+                  {isPosting ? "Sharing..." : "Share post"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
