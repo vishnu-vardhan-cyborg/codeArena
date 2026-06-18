@@ -16,6 +16,7 @@ import { loadProblems } from "../features/problems/problemApi";
 import "../styles/PracticeArena.css";
 
 const difficultyFilters = ["All", "Easy", "Medium", "Hard", "Extreme"];
+const PRACTICE_PROBLEM_PAGE_SIZE = 5;
 
 const bugSnippet = `function containsDuplicate(nums) {
   for (let i = 0; i <= nums.length; i++) {
@@ -42,6 +43,8 @@ export default function PracticeArena() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState("All");
+  const [topicFilter, setTopicFilter] = useState("All");
+  const [problemPage, setProblemPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -69,16 +72,44 @@ export default function PracticeArena() {
     const query = search.trim().toLowerCase();
 
     return problems.filter((problem) => {
+      const problemTopics = Array.isArray(problem.topics) ? problem.topics : [];
       const matchesDifficulty =
         difficulty === "All" || problem.difficulty === difficulty;
+      const matchesTopic =
+        topicFilter === "All" || problemTopics.includes(topicFilter);
       const matchesSearch =
         !query ||
         (problem.title || "").toLowerCase().includes(query) ||
-        (problem.difficulty || "").toLowerCase().includes(query);
+        (problem.difficulty || "").toLowerCase().includes(query) ||
+        problemTopics.join(" ").toLowerCase().includes(query);
 
-      return matchesDifficulty && matchesSearch;
+      return matchesDifficulty && matchesTopic && matchesSearch;
     });
-  }, [difficulty, problems, search]);
+  }, [difficulty, problems, search, topicFilter]);
+
+  useEffect(() => {
+    setProblemPage(1);
+  }, [difficulty, search, topicFilter]);
+
+  const topicFilters = useMemo(() => {
+    const counts = new Map();
+
+    problems.forEach((problem) => {
+      (Array.isArray(problem.topics) ? problem.topics : []).forEach((topic) => {
+        counts.set(topic, (counts.get(topic) || 0) + 1);
+      });
+    });
+
+    return [
+      { name: "All", count: problems.length },
+      ...[...counts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort(
+          (first, second) =>
+            second.count - first.count || first.name.localeCompare(second.name)
+        ),
+    ];
+  }, [problems]);
 
   const stats = useMemo(() => {
     const solved = problems.filter((problem) => problem.solved).length;
@@ -114,6 +145,26 @@ export default function PracticeArena() {
     problems.find((problem) => !problem.solved && problem.difficulty === "Medium") ||
     problems.find((problem) => !problem.solved) ||
     problems[0];
+
+  const problemTotalPages = Math.max(
+    1,
+    Math.ceil(filteredProblems.length / PRACTICE_PROBLEM_PAGE_SIZE)
+  );
+  const boundedProblemPage = Math.min(problemPage, problemTotalPages);
+  const visibleProblems = filteredProblems.slice(
+    (boundedProblemPage - 1) * PRACTICE_PROBLEM_PAGE_SIZE,
+    boundedProblemPage * PRACTICE_PROBLEM_PAGE_SIZE
+  );
+  const problemPageButtons = Array.from(
+    { length: Math.min(problemTotalPages, 5) },
+    (_, index) => {
+      const startPage = Math.min(
+        Math.max(boundedProblemPage - 2, 1),
+        Math.max(problemTotalPages - 4, 1)
+      );
+      return startPage + index;
+    }
+  );
 
   return (
     <div className="page practice-arena-page">
@@ -193,6 +244,19 @@ export default function PracticeArena() {
                 </button>
               ))}
             </div>
+
+            <div className="topic-filter-field" aria-label="Problem topics">
+              {topicFilters.map((topic) => (
+                <button
+                  className={topicFilter === topic.name ? "active-topic" : ""}
+                  type="button"
+                  key={topic.name}
+                  onClick={() => setTopicFilter(topic.name)}
+                >
+                  {topic.name} <span>{topic.count}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="practice-problem-list">
@@ -200,43 +264,104 @@ export default function PracticeArena() {
               <p className="practice-empty-state">Loading problem catalog...</p>
             ) : loadError ? (
               <p className="practice-empty-state">{loadError}</p>
-            ) : filteredProblems.length === 0 ? (
+            ) : visibleProblems.length === 0 ? (
               <p className="practice-empty-state">No matching problems.</p>
             ) : (
-              filteredProblems.map((problem, index) => (
-                <button
-                  className="practice-problem-row"
-                  type="button"
-                  key={problem.id}
-                  onClick={() => navigate(`/problems/${problem.id}`)}
-                >
-                  <span className="problem-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <strong>{problem.title}</strong>
-                    <span>
-                      Acceptance {problem.acceptance} /{" "}
-                      <b className="problem-xp">{problem.xp_reward} XP</b>
-                      {problem.solved && (
-                        <span className="problem-solved" title="Solved">
-                          <Check size={15} strokeWidth={3} />
+              visibleProblems.map((problem, index) => {
+                const problemTopics = Array.isArray(problem.topics)
+                  ? problem.topics
+                  : [];
+
+                return (
+                  <button
+                    className="practice-problem-row"
+                    type="button"
+                    key={problem.id}
+                    onClick={() => navigate(`/problems/${problem.id}`)}
+                  >
+                    <span className="problem-index">
+                      {String(
+                        (boundedProblemPage - 1) * PRACTICE_PROBLEM_PAGE_SIZE +
+                          index +
+                          1
+                      ).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <strong>{problem.title}</strong>
+                      <span>
+                        Acceptance {problem.acceptance} /{" "}
+                        <b className="problem-xp">{problem.xp_reward} XP</b>
+                        {problem.solved && (
+                          <span className="problem-solved" title="Solved">
+                            <Check size={15} strokeWidth={3} />
+                          </span>
+                        )}
+                      </span>
+                      {problemTopics.length > 0 && (
+                        <span className="problem-topic-strip">
+                          {problemTopics.slice(0, 3).map((topic) => (
+                            <small key={topic}>{topic}</small>
+                          ))}
                         </span>
                       )}
+                    </div>
+                    <span
+                      className={`difficulty-badge ${(
+                        problem.difficulty || "Easy"
+                      ).toLowerCase()}`}
+                    >
+                      {problem.difficulty}
                     </span>
-                  </div>
-                  <span
-                    className={`difficulty-badge ${(
-                      problem.difficulty || "Easy"
-                    ).toLowerCase()}`}
-                  >
-                    {problem.difficulty}
-                  </span>
-                  <ArrowRight size={17} />
-                </button>
-              ))
+                    <ArrowRight size={17} />
+                  </button>
+                );
+              })
             )}
           </div>
+
+          {problemTotalPages > 1 && (
+            <div className="problem-pagination" aria-label="Practice problem pages">
+              {boundedProblemPage > 1 && (
+                <button
+                  className="pagination-step"
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() =>
+                    setProblemPage((page) => Math.max(1, page - 1))
+                  }
+                  aria-label="Previous practice problem page"
+                >
+                  &lt; Prev
+                </button>
+              )}
+              {problemPageButtons.map((page) => (
+                <button
+                  className={boundedProblemPage === page ? "active-page" : ""}
+                  type="button"
+                  key={page}
+                  disabled={isLoading}
+                  onClick={() => setProblemPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              {boundedProblemPage < problemTotalPages && (
+                <button
+                  className="pagination-step"
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() =>
+                    setProblemPage((page) =>
+                      Math.min(problemTotalPages, page + 1)
+                    )
+                  }
+                  aria-label="Next practice problem page"
+                >
+                  Next &gt;
+                </button>
+              )}
+            </div>
+          )}
         </main>
 
         <aside className="practice-stats-panel">

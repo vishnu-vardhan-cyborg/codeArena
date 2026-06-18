@@ -421,25 +421,93 @@
 }
 
 [data-theme="dark"] .problem-description,
+[data-theme="dark"] .problem-study-panel,
 [data-theme="dark"] .code-runner-toolbar,
 [data-theme="dark"] .stdin-panel,
 [data-theme="dark"] .problem-target-complexity > div,
 [data-theme="dark"] .submission-metrics article,
-[data-theme="dark"] .submission-complexity > div {
+[data-theme="dark"] .submission-complexity > div,
+[data-theme="dark"] .submission-history-card,
+[data-theme="dark"] .last-submission-summary article,
+[data-theme="dark"] .problem-editorial-panel article,
+[data-theme="dark"] .editorial-solution-grid > div,
+[data-theme="dark"] .problem-solve-timer {
   border-color: #35464b;
   background: #172226;
 }
 
 [data-theme="dark"] .submission-report-heading h2,
-[data-theme="dark"] .problem-target-complexity strong {
+[data-theme="dark"] .problem-target-complexity strong,
+[data-theme="dark"] .problem-solve-timer strong,
+[data-theme="dark"] .submission-history-card strong,
+[data-theme="dark"] .last-submission-summary strong,
+[data-theme="dark"] .editorial-solution-grid strong {
   color: #f0f5f5;
 }
 
 [data-theme="dark"] .problem-run-actions .secondary-run,
-[data-theme="dark"] .problem-solved-label {
+[data-theme="dark"] .problem-solved-label,
+[data-theme="dark"] .problem-solve-timer button {
   border-color: #397b70;
   background: #18322f;
   color: #a9e2d8;
+}
+
+[data-theme="dark"] .problem-solve-timer .timer-primary,
+[data-theme="dark"] .problem-study-tabs .active-study-tab,
+[data-theme="dark"] .problem-note-actions button {
+  border-color: #61d3c2;
+  background: #21564e;
+  color: #e6eeee;
+}
+
+[data-theme="dark"] .topic-filter-field button,
+[data-theme="dark"] .problem-notes-panel label,
+[data-theme="dark"] .problem-study-tabs button {
+  color: #f0f5f5;
+}
+
+[data-theme="dark"] .problem-study-tabs button,
+[data-theme="dark"] .problem-notes-panel textarea {
+  border-color: #35464b;
+  background: #111c20;
+}
+
+[data-theme="dark"] .problem-notes-panel textarea,
+[data-theme="dark"] .problem-editorial-panel article p {
+  color: #dce6e6;
+}
+
+[data-theme="dark"] .topic-filter-field button span {
+  background: rgba(232, 235, 239, 0.12);
+  color: #9aa6ad;
+}
+
+[data-theme="dark"] .topic-filter-field .active-topic {
+  color: #ffe9a3;
+}
+
+[data-theme="dark"] .topic-filter-field .active-topic span {
+  background: rgba(244, 201, 93, 0.14);
+  color: #ffe9a3;
+}
+
+[data-theme="dark"] .problem-pagination button {
+  background: transparent;
+  color: #f4c95d;
+}
+
+[data-theme="dark"] .problem-pagination .active-page {
+  background: rgba(244, 201, 93, 0.12);
+  color: #ffe9a3;
+  box-shadow: inset 0 -1px 0 #f4c95d;
+}
+
+[data-theme="dark"] .problem-topic-strip small,
+[data-theme="dark"] .problem-editorial-topics small {
+  border-color: rgba(244, 201, 93, 0.34);
+  background: rgba(244, 201, 93, 0.1);
+  color: #ffe9a3;
 }
 
 [data-theme="dark"] .example-block pre {

@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
+  BookOpen,
   CheckCircle2,
   Clock3,
+  FileText,
+  History,
+  Hourglass,
+  NotebookPen,
+  Pause,
   Play,
+  RotateCcw,
+  Save,
   Send,
   ShieldCheck,
   Trophy,
@@ -12,10 +20,21 @@ import {
 } from "lucide-react";
 import {
   loadProblem,
+  loadProblemEditorial,
+  loadProblemNote,
+  loadProblemSubmissions,
   loadTyphonLanguages,
   runTyphonCode,
+  saveProblemNote,
   submitProblem,
 } from "../features/problems/problemApi";
+
+const studyTabs = [
+  { id: "notes", label: "Notes", icon: NotebookPen },
+  { id: "submissions", label: "Submissions", icon: History },
+  { id: "last", label: "Last submission", icon: FileText },
+  { id: "editorial", label: "Editorial", icon: BookOpen },
+];
 
 const formatExecutionOutput = (result) => {
   const output =
@@ -25,6 +44,28 @@ const formatExecutionOutput = (result) => {
     "Program finished without output.";
 
   return String(output).trimEnd();
+};
+
+const formatSubmissionDate = (value) => {
+  if (!value) return "Unknown";
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+};
+
+const getSubmissionTone = (status = "") =>
+  status === "Accepted" ? "accepted" : "rejected";
+
+const formatSolveTimer = (seconds) => {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  return [hours, minutes, remainingSeconds]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
 };
 
 export default function Problem() {
@@ -45,10 +86,19 @@ export default function Problem() {
   const [output, setOutput] = useState("Typhon terminal ready.");
   const [executionStatus, setExecutionStatus] = useState("Ready");
   const [submissionResult, setSubmissionResult] = useState(null);
+  const [activeStudyTab, setActiveStudyTab] = useState("notes");
+  const [editorial, setEditorial] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [latestSubmission, setLatestSubmission] = useState(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteStatus, setNoteStatus] = useState("");
+  const [extrasLoading, setExtrasLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [solveSeconds, setSolveSeconds] = useState(0);
+  const [solveTimerRunning, setSolveTimerRunning] = useState(false);
 
   const selectedLanguage = useMemo(
     () => languages.find((language) => String(language.id) === languageId),
@@ -83,6 +133,53 @@ export default function Problem() {
       })
       .finally(() => {
         if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.id, problemId]);
+
+  useEffect(() => {
+    setSolveSeconds(0);
+    setSolveTimerRunning(false);
+  }, [problemId]);
+
+  useEffect(() => {
+    if (!solveTimerRunning) return undefined;
+
+    const timerId = window.setInterval(() => {
+      setSolveSeconds((seconds) => seconds + 1);
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [solveTimerRunning]);
+
+  useEffect(() => {
+    let active = true;
+
+    setExtrasLoading(true);
+    setEditorial(null);
+    setSubmissions([]);
+    setLatestSubmission(null);
+    setNoteDraft("");
+    setNoteStatus("");
+
+    Promise.all([
+      loadProblemEditorial(problemId),
+      loadProblemSubmissions(problemId, currentUser?.id),
+      loadProblemNote(problemId, currentUser?.id),
+    ])
+      .then(([editorialData, submissionData, noteData]) => {
+        if (!active) return;
+
+        setEditorial(editorialData);
+        setSubmissions(submissionData.submissions || []);
+        setLatestSubmission(submissionData.latestSubmission || null);
+        setNoteDraft(noteData?.body || "");
+      })
+      .finally(() => {
+        if (active) setExtrasLoading(false);
       });
 
     return () => {
@@ -152,6 +249,10 @@ export default function Problem() {
           : `${result.status}. Passed ${result.passedTests}/${result.totalTests} tests.\n${result.errorMessage || ""}`.trim()
       );
 
+      if (result.status === "Accepted") {
+        setSolveTimerRunning(false);
+      }
+
       setProblem((currentProblem) => ({
         ...currentProblem,
         acceptance: result.acceptance,
@@ -166,11 +267,38 @@ export default function Problem() {
           JSON.stringify({ ...currentUser, xp: result.totalXp })
         );
       }
+
+      const submissionData = await loadProblemSubmissions(
+        problemId,
+        currentUser.id
+      );
+      setSubmissions(submissionData.submissions || []);
+      setLatestSubmission(submissionData.latestSubmission || null);
     } catch (error) {
       setExecutionStatus("Error");
       setOutput(error.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!currentUser?.id) {
+      setNoteStatus("Sign in to save notes.");
+      return;
+    }
+
+    setNoteStatus("Saving...");
+
+    try {
+      const note = await saveProblemNote(problemId, {
+        userId: currentUser.id,
+        body: noteDraft,
+      });
+      setNoteDraft(note?.body || "");
+      setNoteStatus("Saved.");
+    } catch (error) {
+      setNoteStatus(error.message);
     }
   };
 
@@ -192,6 +320,13 @@ export default function Problem() {
   }
 
   const busy = isRunning || isSubmitting;
+  const problemTopics = Array.isArray(problem.topics) ? problem.topics : [];
+  const editorialTopics =
+    Array.isArray(editorial?.topics) && editorial.topics.length > 0
+      ? editorial.topics
+      : problemTopics;
+  const displayedLatestSubmission = latestSubmission || submissions[0] || null;
+  const solveTimerLabel = formatSolveTimer(solveSeconds);
 
   return (
     <div className="page problem-page">
@@ -215,12 +350,49 @@ export default function Problem() {
             Acceptance: {problem.acceptance} · Reward: {problem.xp_reward} XP ·
             Attempts: {problem.attempts}
           </p>
+          {problemTopics.length > 0 && (
+            <div className="problem-topic-strip problem-topic-strip-large">
+              {problemTopics.map((topic) => (
+                <small key={topic}>{topic}</small>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="problem-workspace">
         <section className="problem-description">
-          <h2>Description</h2>
+          <div className="problem-description-heading">
+            <h2>Description</h2>
+            <div className="problem-solve-timer" aria-label="Problem timer">
+              <Hourglass size={16} />
+              <strong>{solveTimerLabel}</strong>
+              <button
+                className="timer-primary"
+                type="button"
+                onClick={() => setSolveTimerRunning((running) => !running)}
+              >
+                {solveTimerRunning ? <Pause size={14} /> : <Play size={14} />}
+                {solveTimerRunning
+                  ? "Pause"
+                  : solveSeconds > 0
+                    ? "Resume"
+                    : "Start"}
+              </button>
+              {solveSeconds > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSolveSeconds(0);
+                    setSolveTimerRunning(false);
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
           <p>{problem.description}</p>
 
           <h2>Input format</h2>
@@ -335,6 +507,203 @@ export default function Problem() {
             <pre className="terminal-output">{output}</pre>
           </div>
         </section>
+
+      <section className="problem-study-panel">
+        <div className="problem-study-heading">
+          <div>
+            <span>Study console</span>
+            <h2>Notes, submissions, and editorial</h2>
+          </div>
+          {extrasLoading && (
+            <strong className="problem-study-loading">Loading...</strong>
+          )}
+        </div>
+
+        <nav className="problem-study-tabs" aria-label="Problem study tabs">
+          {studyTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                className={activeStudyTab === tab.id ? "active-study-tab" : ""}
+                type="button"
+                key={tab.id}
+                onClick={() => setActiveStudyTab(tab.id)}
+              >
+                <Icon size={15} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="problem-study-content">
+          {activeStudyTab === "notes" && (
+            <div className="problem-notes-panel">
+              <label htmlFor="problem-note">
+                Personal notes
+                <small>
+                  Stored per user and problem. Use this for patterns, edge
+                  cases, and mistakes.
+                </small>
+              </label>
+              <textarea
+                id="problem-note"
+                value={noteDraft}
+                placeholder="Write your observations, failed ideas, or final pattern here."
+                onChange={(event) => {
+                  setNoteDraft(event.target.value);
+                  setNoteStatus("");
+                }}
+              />
+              <div className="problem-note-actions">
+                <button type="button" onClick={handleSaveNote}>
+                  <Save size={15} />
+                  Save notes
+                </button>
+                {noteStatus && <span>{noteStatus}</span>}
+              </div>
+            </div>
+          )}
+
+          {activeStudyTab === "submissions" && (
+            <div className="submission-history-list">
+              {submissions.length === 0 ? (
+                <p className="problem-study-empty">
+                  No submissions yet. Submit code once to create history.
+                </p>
+              ) : (
+                submissions.map((submission) => (
+                  <article
+                    className={`submission-history-card ${getSubmissionTone(
+                      submission.status
+                    )}`}
+                    key={submission.id}
+                  >
+                    <div>
+                      <strong>{submission.status}</strong>
+                      <span>{formatSubmissionDate(submission.created_at)}</span>
+                    </div>
+                    <div>
+                      <span>Language</span>
+                      <strong>{submission.language}</strong>
+                    </div>
+                    <div>
+                      <span>Tests</span>
+                      <strong>
+                        {submission.passed_tests}/{submission.total_tests}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Runtime</span>
+                      <strong>{submission.runtime_ms ?? "N/A"} ms</strong>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeStudyTab === "last" && (
+            <div className="last-submission-panel">
+              {!displayedLatestSubmission ? (
+                <p className="problem-study-empty">
+                  No last submission yet. Your most recent submitted code will
+                  appear here.
+                </p>
+              ) : (
+                <>
+                  <div className="last-submission-summary">
+                    <article
+                      className={getSubmissionTone(
+                        displayedLatestSubmission.status
+                      )}
+                    >
+                      <span>Status</span>
+                      <strong>{displayedLatestSubmission.status}</strong>
+                    </article>
+                    <article>
+                      <span>Submitted</span>
+                      <strong>
+                        {formatSubmissionDate(
+                          displayedLatestSubmission.created_at
+                        )}
+                      </strong>
+                    </article>
+                    <article>
+                      <span>Complexity estimate</span>
+                      <strong>
+                        {displayedLatestSubmission.estimated_time_complexity ||
+                          "N/A"}{" "}
+                        /{" "}
+                        {displayedLatestSubmission.estimated_space_complexity ||
+                          "N/A"}
+                      </strong>
+                    </article>
+                  </div>
+                  {displayedLatestSubmission.error_message && (
+                    <pre className="last-submission-error">
+                      {displayedLatestSubmission.error_message}
+                    </pre>
+                  )}
+                  <pre className="last-submission-code">
+                    {displayedLatestSubmission.source_code}
+                  </pre>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeStudyTab === "editorial" && (
+            <div className="problem-editorial-panel">
+              {!editorial && editorialTopics.length === 0 ? (
+                <p className="problem-study-empty">
+                  No editorial has been added for this problem yet.
+                </p>
+              ) : (
+                <>
+                  {editorialTopics.length > 0 && (
+                    <div className="problem-editorial-topics">
+                      {editorialTopics.map((topic) => (
+                        <small key={topic}>{topic}</small>
+                      ))}
+                    </div>
+                  )}
+                  <article>
+                    <span>Overview</span>
+                    <p>{editorial?.overview || "Study the target pattern and map the input to the expected output carefully."}</p>
+                  </article>
+                  <article>
+                    <span>Approach</span>
+                    <p>{editorial?.approach || "Use the listed topics to choose the correct data structure, then verify edge cases against the examples."}</p>
+                  </article>
+                  {editorial?.complexity_notes && (
+                    <article>
+                      <span>Complexity</span>
+                      <p>{editorial.complexity_notes}</p>
+                    </article>
+                  )}
+                  <div className="editorial-solution-grid">
+                    <div>
+                      <strong>Python solution notes</strong>
+                      <pre>
+                        {editorial?.solution_python ||
+                          "Implement solve(data), parse stdin, apply the approach, and return the exact output format."}
+                      </pre>
+                    </div>
+                    <div>
+                      <strong>Java solution notes</strong>
+                      <pre>
+                        {editorial?.solution_java ||
+                          "Implement solve(input), parse stdin, apply the approach, and print the exact output format."}
+                      </pre>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
       </div>
 
       {submissionResult && (

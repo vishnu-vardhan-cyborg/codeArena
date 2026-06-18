@@ -6,6 +6,7 @@ const PUBLIC_PROBLEM_FIELDS = [
   "id",
   "title",
   "difficulty",
+  "topics",
   "description",
   "input_format",
   "output_format",
@@ -93,6 +94,48 @@ const toPublicProblem = (problem, progress) => ({
   bestRuntimeMs: progress?.best_runtime_ms ?? null,
 });
 
+const clampPositiveInteger = (value, fallback, max = 100) => {
+  const number = Number.parseInt(value, 10);
+  if (!Number.isFinite(number) || number <= 0) return fallback;
+  return Math.min(number, max);
+};
+
+const applyProblemFilters = (query, options = {}) => {
+  const difficulty = String(options.difficulty || "").trim();
+  const topic = String(options.topic || "").trim();
+  const search = String(options.search || "").trim();
+
+  let filteredQuery = query;
+
+  if (difficulty && difficulty !== "All") {
+    filteredQuery = filteredQuery.eq("difficulty", difficulty);
+  }
+
+  if (topic && topic !== "All") {
+    filteredQuery = filteredQuery.contains("topics", [topic]);
+  }
+
+  if (search) {
+    filteredQuery = filteredQuery.ilike("title", `%${search}%`);
+  }
+
+  return filteredQuery;
+};
+
+const buildTopicCounts = (rows = []) => {
+  const counts = new Map();
+
+  rows.forEach((row) => {
+    (Array.isArray(row.topics) ? row.topics : []).forEach((topic) => {
+      counts.set(topic, (counts.get(topic) || 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name));
+};
+
 const getUserProgress = async (userId, problemIds) => {
   if (!hasServiceRole || !userId || problemIds.length === 0) return new Map();
 
@@ -106,14 +149,30 @@ const getUserProgress = async (userId, problemIds) => {
   return new Map((data || []).map((item) => [item.problem_id, item]));
 };
 
-const listProblems = async (userId) => {
-  const { data, error } = await publicSupabase
+const listProblems = async (userId, options = {}) => {
+  const pageSize = clampPositiveInteger(options.pageSize, 0, 50);
+  const page = clampPositiveInteger(options.page, 1, 1000000);
+  const offset = pageSize ? (page - 1) * pageSize : 0;
+
+  let problemQuery = publicSupabase
     .from("problems")
-    .select(PUBLIC_PROBLEM_FIELDS)
+    .select(PUBLIC_PROBLEM_FIELDS, { count: "exact" })
     .order("difficulty", { ascending: true })
     .order("title", { ascending: true });
 
+  problemQuery = applyProblemFilters(problemQuery, options);
+
+  if (pageSize) {
+    problemQuery = problemQuery.range(offset, offset + pageSize - 1);
+  }
+
+  const { data, error, count } = await problemQuery;
+
   if (error) throw error;
+
+  const { data: topicRows } = await publicSupabase
+    .from("problems")
+    .select("topics");
 
   const progress = await getUserProgress(
     userId,
@@ -122,7 +181,7 @@ const listProblems = async (userId) => {
 
   const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2, Extreme: 3 };
 
-  return (data || [])
+  const problems = (data || [])
     .map((problem) => toPublicProblem(problem, progress.get(problem.id)))
     .sort(
       (first, second) =>
@@ -130,6 +189,15 @@ const listProblems = async (userId) => {
           (difficultyOrder[second.difficulty] ?? 99) ||
         first.title.localeCompare(second.title)
     );
+
+  return {
+    problems,
+    total: count ?? problems.length,
+    page,
+    pageSize: pageSize || problems.length,
+    totalPages: pageSize ? Math.max(1, Math.ceil((count || 0) / pageSize)) : 1,
+    topics: buildTopicCounts(topicRows || []),
+  };
 };
 
 const getProblem = async (problemId, userId) => {
@@ -143,6 +211,98 @@ const getProblem = async (problemId, userId) => {
 
   const progress = await getUserProgress(userId, [problemId]);
   return toPublicProblem(data, progress.get(problemId));
+};
+
+const getProblemEditorial = async (problemId) => {
+  const { data, error } = await publicSupabase
+    .from("problem_editorials")
+    .select(
+      "problem_id, topics, overview, approach, solution_python, solution_java, complexity_notes, updated_at"
+    )
+    .eq("problem_id", problemId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+};
+
+const getProblemSubmissions = async (problemId, userId) => {
+  if (!hasServiceRole || !userId) {
+    return {
+      submissions: [],
+      latestSubmission: null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("problem_submissions")
+    .select(
+      "id, problem_id, language, source_code, status, passed_tests, total_tests, runtime_ms, estimated_time_complexity, estimated_space_complexity, error_message, created_at"
+    )
+    .eq("problem_id", problemId)
+    .eq("user_id", String(userId))
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (error) throw error;
+
+  return {
+    submissions: data || [],
+    latestSubmission: data?.[0] || null,
+  };
+};
+
+const getProblemNote = async (problemId, userId) => {
+  if (!hasServiceRole || !userId) {
+    return {
+      note: null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("problem_notes")
+    .select("id, problem_id, user_id, body, created_at, updated_at")
+    .eq("problem_id", problemId)
+    .eq("user_id", String(userId))
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return {
+    note: data || null,
+  };
+};
+
+const saveProblemNote = async ({ problemId, userId, body }) => {
+  if (!hasServiceRole) {
+    const error = new Error(
+      "Problem notes require the backend Supabase secret key."
+    );
+    error.statusCode = 503;
+    throw error;
+  }
+
+  if (!userId) throw new Error("A logged-in user is required to save notes");
+
+  const { data, error } = await supabase
+    .from("problem_notes")
+    .upsert(
+      {
+        problem_id: problemId,
+        user_id: String(userId),
+        body: String(body || "").slice(0, 12000),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,problem_id" }
+    )
+    .select("id, problem_id, user_id, body, created_at, updated_at")
+    .single();
+
+  if (error) throw error;
+
+  return {
+    note: data,
+  };
 };
 
 const judgeSubmission = async ({
@@ -314,6 +474,10 @@ const judgeSubmission = async ({
 
 module.exports = {
   getProblem,
+  getProblemEditorial,
+  getProblemNote,
+  getProblemSubmissions,
   judgeSubmission,
   listProblems,
+  saveProblemNote,
 };

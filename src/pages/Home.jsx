@@ -19,7 +19,7 @@ import {
 import AppSidebar from "../components/AppSidebar";
 import { supabase } from "../supabase";
 import {
-  loadProblems,
+  loadProblemPage,
   loadUserProblemStats,
 } from "../features/problems/problemApi";
 import "../styles/Home.css";
@@ -56,6 +56,11 @@ const quickActions = [
 ];
 
 const difficultyFilters = ["All", "Easy", "Medium", "Hard", "Extreme"];
+const HOME_PROBLEM_PAGE_SIZE = 5;
+const HOME_PROBLEM_PRELOAD_SIZE = 25;
+const HOME_PROBLEM_BATCH_PAGES = Math.ceil(
+  HOME_PROBLEM_PRELOAD_SIZE / HOME_PROBLEM_PAGE_SIZE
+);
 
 const formatRank = (rank) => {
   const rankValue = Number(rank);
@@ -98,7 +103,11 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [problemSearch, setProblemSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("All");
+  const [topicFilter, setTopicFilter] = useState("All");
   const [problems, setProblems] = useState([]);
+  const [problemPage, setProblemPage] = useState(1);
+  const [problemTotal, setProblemTotal] = useState(0);
+  const [topicFilters, setTopicFilters] = useState([]);
   const [problemLoadError, setProblemLoadError] = useState("");
   const [problemsLoading, setProblemsLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -108,6 +117,8 @@ export default function Home() {
     localRank: "No country",
   });
   const debounceTimer = useRef(null);
+  const problemBatchPage =
+    Math.floor((problemPage - 1) / HOME_PROBLEM_BATCH_PAGES) + 1;
 
   const searchUsers = async (value) => {
     setSearch(value);
@@ -151,25 +162,49 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    const requestTimer = setTimeout(() => {
+      setProblemsLoading(true);
 
-    loadProblems(currentUser.id)
-      .then((loadedProblems) => {
-        if (!active) return;
-        setProblems(loadedProblems);
-        setProblemLoadError("");
+      loadProblemPage(currentUser.id, {
+        page: problemBatchPage,
+        pageSize: HOME_PROBLEM_PRELOAD_SIZE,
+        search: problemSearch.trim(),
+        difficulty: difficultyFilter,
+        topic: topicFilter,
       })
-      .catch((error) => {
-        if (!active) return;
-        setProblemLoadError(error.message);
-      })
-      .finally(() => {
-        if (active) setProblemsLoading(false);
-      });
+        .then((result) => {
+          if (!active) return;
+          setProblems(result.problems);
+          setProblemTotal(result.total);
+          setTopicFilters(result.topics || []);
+          setProblemLoadError("");
+        })
+        .catch((error) => {
+          if (!active) return;
+          setProblems([]);
+          setProblemTotal(0);
+          setProblemLoadError(error.message);
+        })
+        .finally(() => {
+          if (active) setProblemsLoading(false);
+        });
+    }, 220);
 
     return () => {
       active = false;
+      clearTimeout(requestTimer);
     };
-  }, [currentUser.id]);
+  }, [
+    currentUser.id,
+    difficultyFilter,
+    problemBatchPage,
+    problemSearch,
+    topicFilter,
+  ]);
+
+  useEffect(() => {
+    setProblemPage(1);
+  }, [difficultyFilter, problemSearch, topicFilter]);
 
   useEffect(() => {
     let active = true;
@@ -221,18 +256,27 @@ export default function Home() {
     };
   }, [currentUser]);
 
-  const filteredProblems = problems.filter((problem) => {
-    const query = problemSearch.trim().toLowerCase();
-    const matchesDifficulty =
-      difficultyFilter === "All" || problem.difficulty === difficultyFilter;
-
-    return (
-      matchesDifficulty &&
-      (!query ||
-        problem.title.toLowerCase().includes(query) ||
-        problem.difficulty.toLowerCase().includes(query))
-    );
-  });
+  const problemBatchOffset =
+    ((problemPage - 1) % HOME_PROBLEM_BATCH_PAGES) * HOME_PROBLEM_PAGE_SIZE;
+  const visibleProblems = problems.slice(
+    problemBatchOffset,
+    problemBatchOffset + HOME_PROBLEM_PAGE_SIZE
+  );
+  const safeProblemTotal = Math.max(problemTotal, visibleProblems.length);
+  const problemTotalPages = Math.max(
+    1,
+    Math.ceil(safeProblemTotal / HOME_PROBLEM_PAGE_SIZE)
+  );
+  const problemPageButtons = Array.from(
+    { length: Math.min(problemTotalPages, 5) },
+    (_, index) => {
+      const startPage = Math.min(
+        Math.max(problemPage - 2, 1),
+        Math.max(problemTotalPages - 4, 1)
+      );
+      return startPage + index;
+    }
+  );
 
   const playerXp = Number(currentUser.xp || 0);
   const level = Math.floor(playerXp / 100) + 1;
@@ -367,7 +411,9 @@ export default function Home() {
                   <p>Pick a challenge and judge your solution with Typhon.</p>
                 </div>
                 <strong>
-                  {problemsLoading ? "Loading..." : `${filteredProblems.length} available`}
+                  {problemsLoading
+                    ? "Loading..."
+                    : `${safeProblemTotal} available`}
                 </strong>
               </div>
 
@@ -400,6 +446,27 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                <div className="topic-filter-field" aria-label="Problem topics">
+                  <button
+                    className={topicFilter === "All" ? "active-topic" : ""}
+                    type="button"
+                    onClick={() => setTopicFilter("All")}
+                  >
+                    All <span>{safeProblemTotal}</span>
+                  </button>
+                  {topicFilters.map((topic) => (
+                    <button
+                      className={
+                        topicFilter === topic.name ? "active-topic" : ""
+                      }
+                      type="button"
+                      key={topic.name}
+                      onClick={() => setTopicFilter(topic.name)}
+                    >
+                      {topic.name} <span>{topic.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="problem-list">
@@ -407,17 +474,24 @@ export default function Home() {
                   <p className="empty-state">Loading problem catalog...</p>
                 ) : problemLoadError ? (
                   <p className="empty-state">{problemLoadError}</p>
-                ) : filteredProblems.length === 0 ? (
+                ) : visibleProblems.length === 0 ? (
                   <p className="empty-state">No matching problems.</p>
                 ) : (
-                  filteredProblems.map((problem, index) => (
+                  visibleProblems.map((problem, index) => {
+                    const problemTopics = Array.isArray(problem.topics)
+                      ? problem.topics
+                      : [];
+
+                    return (
                     <button
                       className="problem-row"
                       key={problem.id}
                       onClick={() => navigate(`/problems/${problem.id}`)}
                     >
                       <span className="problem-index">
-                        {String(index + 1).padStart(2, "0")}
+                        {String(
+                          (problemPage - 1) * HOME_PROBLEM_PAGE_SIZE + index + 1
+                        ).padStart(2, "0")}
                       </span>
                       <div>
                         <strong>{problem.title}</strong>
@@ -430,6 +504,13 @@ export default function Home() {
                             </span>
                           )}
                         </span>
+                        {problemTopics.length > 0 && (
+                          <span className="problem-topic-strip">
+                            {problemTopics.slice(0, 3).map((topic) => (
+                              <small key={topic}>{topic}</small>
+                            ))}
+                          </span>
+                        )}
                       </div>
                       <span
                         className={`difficulty-badge ${problem.difficulty.toLowerCase()}`}
@@ -438,9 +519,54 @@ export default function Home() {
                       </span>
                       <ArrowRight className="problem-arrow" size={17} />
                     </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
+
+              {problemTotalPages > 1 && (
+                <div className="problem-pagination" aria-label="Problem pages">
+                  {problemPage > 1 && (
+                    <button
+                      className="pagination-step"
+                      type="button"
+                      disabled={problemsLoading}
+                      onClick={() =>
+                        setProblemPage((page) => Math.max(1, page - 1))
+                      }
+                      aria-label="Previous problem page"
+                    >
+                      &lt; Prev
+                    </button>
+                  )}
+                  {problemPageButtons.map((page) => (
+                    <button
+                      className={problemPage === page ? "active-page" : ""}
+                      type="button"
+                      key={page}
+                      disabled={problemsLoading}
+                      onClick={() => setProblemPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  {problemPage < problemTotalPages && (
+                    <button
+                      className="pagination-step"
+                      type="button"
+                      disabled={problemsLoading}
+                      onClick={() =>
+                        setProblemPage((page) =>
+                          Math.min(problemTotalPages, page + 1)
+                        )
+                      }
+                      aria-label="Next problem page"
+                    >
+                      Next &gt;
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
 
             <aside className="home-side-rail">

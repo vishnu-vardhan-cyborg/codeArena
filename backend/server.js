@@ -1,7 +1,15 @@
 const http = require("http");
 const { Server } = require("socket.io");
 const { readJsonBody, sendJson } = require("./http");
-const { getProblem, judgeSubmission, listProblems } = require("./problems");
+const {
+  getProblem,
+  getProblemEditorial,
+  getProblemNote,
+  getProblemSubmissions,
+  judgeSubmission,
+  listProblems,
+  saveProblemNote,
+} = require("./problems");
 const { adminKeyType, supabase } = require("./supabase");
 const { executeTyphon, getLanguages, requestTyphon } = require("./typhon");
 const { getUserProblemStats } = require("./userStats");
@@ -55,9 +63,17 @@ const requestHandler = async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/problems") {
-      sendJson(response, 200, {
-        problems: await listProblems(url.searchParams.get("userId")),
-      });
+      sendJson(
+        response,
+        200,
+        await listProblems(url.searchParams.get("userId"), {
+          page: url.searchParams.get("page"),
+          pageSize: url.searchParams.get("pageSize"),
+          search: url.searchParams.get("search"),
+          difficulty: url.searchParams.get("difficulty"),
+          topic: url.searchParams.get("topic"),
+        })
+      );
       return;
     }
 
@@ -79,6 +95,59 @@ const requestHandler = async (request, response) => {
           url.searchParams.get("userId")
         ),
       });
+      return;
+    }
+
+    const editorialMatch = url.pathname.match(
+      /^\/api\/problems\/([^/]+)\/editorial$/
+    );
+    if (request.method === "GET" && editorialMatch) {
+      sendJson(response, 200, {
+        editorial: await getProblemEditorial(
+          decodeURIComponent(editorialMatch[1])
+        ),
+      });
+      return;
+    }
+
+    const submissionsMatch = url.pathname.match(
+      /^\/api\/problems\/([^/]+)\/submissions$/
+    );
+    if (request.method === "GET" && submissionsMatch) {
+      sendJson(
+        response,
+        200,
+        await getProblemSubmissions(
+          decodeURIComponent(submissionsMatch[1]),
+          url.searchParams.get("userId")
+        )
+      );
+      return;
+    }
+
+    const notesMatch = url.pathname.match(/^\/api\/problems\/([^/]+)\/notes$/);
+    if (request.method === "GET" && notesMatch) {
+      sendJson(
+        response,
+        200,
+        await getProblemNote(
+          decodeURIComponent(notesMatch[1]),
+          url.searchParams.get("userId")
+        )
+      );
+      return;
+    }
+
+    if (request.method === "POST" && notesMatch) {
+      const payload = await readJsonBody(request);
+      sendJson(
+        response,
+        200,
+        await saveProblemNote({
+          ...payload,
+          problemId: decodeURIComponent(notesMatch[1]),
+        })
+      );
       return;
     }
 

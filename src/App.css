@@ -461,7 +461,11 @@
 .problem-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-areas:
+    "description runner"
+    "study runner";
   gap: 16px;
+  align-items: start;
 }
 
 .problem-description,
@@ -473,7 +477,25 @@
 }
 
 .problem-description {
+  grid-area: description;
   padding: 20px;
+}
+
+.code-runner-panel {
+  grid-area: runner;
+}
+
+.problem-description-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.problem-description-heading h2 {
+  margin: 0;
 }
 
 .problem-description h2:first-child {
@@ -752,6 +774,275 @@
 .submission-complexity small {
   color: #778589;
   font-size: 8px;
+}
+
+.problem-study-panel {
+  grid-area: study;
+  display: grid;
+  gap: 12px;
+  margin-top: 0;
+  border: 1px solid #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  background: #000000;
+}
+
+.problem-study-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.problem-study-heading span,
+.problem-notes-panel label small,
+.problem-study-empty,
+.submission-history-card span,
+.last-submission-summary span,
+.problem-editorial-panel article span {
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.problem-study-heading h2 {
+  margin: 4px 0 0;
+}
+
+.problem-study-loading {
+  color: #8a6410;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.problem-study-meta,
+.problem-solve-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.problem-study-meta {
+  justify-content: flex-end;
+}
+
+.problem-solve-timer {
+  border: 1px solid #d2dddd;
+  border-radius: 7px;
+  padding: 6px;
+  background: #f8fafa;
+  color: #8a6410;
+}
+
+.problem-solve-timer strong {
+  min-width: 66px;
+  color: #172428;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.problem-solve-timer button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #c8d4d4;
+  border-radius: 5px;
+  padding: 0 8px;
+  background: #fff;
+  color: #405055;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.problem-solve-timer .timer-primary {
+  border-color: #118b7c;
+  background: #087565;
+  color: #fff;
+}
+
+.problem-study-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.problem-study-tabs button,
+.problem-note-actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #c8d4d4;
+  border-radius: 6px;
+  padding: 0 11px;
+  background: #f8fafa;
+  color: #405055;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.problem-study-tabs .active-study-tab,
+.problem-note-actions button {
+  border-color: #118b7c;
+  background: #087565;
+  color: #fff;
+}
+
+.problem-study-content {
+  min-height: 220px;
+}
+
+.problem-notes-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.problem-notes-panel label {
+  display: grid;
+  gap: 4px;
+  color: #172428;
+  font-weight: 900;
+}
+
+.problem-notes-panel textarea {
+  width: 100%;
+  min-height: 210px;
+  resize: vertical;
+  border: 1px solid #d5dede;
+  border-radius: 7px;
+  padding: 12px;
+  background: #f8fafa;
+  color: #172428;
+  line-height: 1.6;
+  outline: none;
+}
+
+.problem-note-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.problem-note-actions span {
+  color: #087565;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.submission-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.submission-history-card,
+.last-submission-summary {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) repeat(3, minmax(100px, 0.8fr));
+  gap: 8px;
+}
+
+.submission-history-card {
+  border: 1px solid #dce5e5;
+  border-left: 4px solid #b42318;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f8fafa;
+}
+
+.submission-history-card.accepted {
+  border-left-color: #118b7c;
+}
+
+.submission-history-card div,
+.last-submission-summary article,
+.problem-editorial-panel article,
+.editorial-solution-grid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.submission-history-card strong,
+.last-submission-summary strong {
+  color: #172428;
+  font-size: 12px;
+}
+
+.last-submission-panel,
+.problem-editorial-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.last-submission-summary article {
+  border: 1px solid #dce5e5;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f8fafa;
+}
+
+.last-submission-summary article.accepted {
+  border-color: rgba(17, 139, 124, 0.35);
+}
+
+.last-submission-summary article.rejected {
+  border-color: rgba(180, 35, 24, 0.35);
+}
+
+.last-submission-error,
+.last-submission-code,
+.editorial-solution-grid pre {
+  overflow: auto;
+  border: 1px solid #d5dede;
+  border-radius: 7px;
+  margin: 0;
+  padding: 12px;
+  background: #111c20;
+  color: #f0f5f5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.last-submission-error {
+  background: #fff4f2;
+  color: #8f1d14;
+}
+
+.problem-editorial-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.problem-editorial-panel article {
+  border: 1px solid #dce5e5;
+  border-radius: 7px;
+  padding: 12px;
+  background: #f8fafa;
+}
+
+.problem-editorial-panel article p {
+  margin: 0;
+  color: #263438;
+  line-height: 1.6;
+}
+
+.editorial-solution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.editorial-solution-grid strong {
+  color: #172428;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .preview-page {
@@ -1296,6 +1587,113 @@
   text-transform: uppercase;
 }
 
+.topic-filter-field {
+  grid-column: 1 / -1;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  overflow: auto hidden;
+  padding: 3px 1px 8px;
+  scrollbar-width: none;
+}
+
+.topic-filter-field::-webkit-scrollbar {
+  display: none;
+}
+
+.topic-filter-field button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #172428;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.topic-filter-field button span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  margin-left: 4px;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: #e6eaed;
+  color: #4f5d64;
+  font-size: 11px;
+}
+
+.topic-filter-field .active-topic {
+  color: #8a6410;
+}
+
+.topic-filter-field .active-topic span {
+  background: rgba(244, 201, 93, 0.2);
+  color: #8a6410;
+}
+
+.problem-topic-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.problem-topic-strip small,
+.problem-editorial-topics small {
+  border: 1px solid rgba(244, 201, 93, 0.32);
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(244, 201, 93, 0.12);
+  color: #8a6410;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.problem-topic-strip-large {
+  margin-top: 8px;
+}
+
+.problem-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 4px;
+}
+
+.problem-pagination button {
+  min-width: 38px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 4px 4px 0 0;
+  padding: 0 10px;
+  background: transparent;
+  color: #c79018;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.problem-pagination .active-page {
+  background: rgba(244, 201, 93, 0.12);
+  color: #8a6410;
+  box-shadow: inset 0 -1px 0 #c79018;
+}
+
+.problem-pagination .pagination-step {
+  min-width: auto;
+  color: #c79018;
+}
+
+.problem-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .auth-choice-grid button.active {
   border-color: #159b8a;
   background: #e7f7f3;
@@ -1439,6 +1837,10 @@
 
   .problem-workspace {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "description"
+      "runner"
+      "study";
   }
 
   .submission-metrics,
