@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import "../styles/Clan.css";
 
-const RECOMMENDED_DURATIONS = [30, 60, 90, 120];
 const MIN_DURATION = 7;
 const MAX_DURATION = 365;
-const RECOMMENDED_ACTIVE_LIMIT = 3;
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const clampDuration = (days) =>
+  Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(days) || MIN_DURATION));
 
 const getDisplayName = (user) => user?.uusername || user?.username || "Friend";
 
@@ -16,10 +18,6 @@ const getDaysRemaining = (endsAt) => {
 };
 
 const getCapsuleMode = (memberCount) => {
-  if (memberCount === 2) {
-    return "Duel War Zone";
-  }
-
   if (memberCount <= 4) {
     return "Squad Challenge";
   }
@@ -27,17 +25,49 @@ const getCapsuleMode = (memberCount) => {
   return "Clan Expedition";
 };
 
-const mapClanRows = (clanRows = [], memberRows = []) =>
-  clanRows.map((clan) => ({
-    id: clan.id,
-    name: clan.name,
-    tag: clan.tag,
-    ownerId: clan.owner_id,
-    createdAt: clan.created_at,
-    memberIds: memberRows
+const generateRoomCode = () =>
+  Array.from(
+    { length: 8 },
+    () => ROOM_CODE_ALPHABET[Math.floor(Math.random() * ROOM_CODE_ALPHABET.length)]
+  ).join("");
+
+const normalizeRoomCode = (value) =>
+  value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+
+const mapClanRows = (clanRows = [], memberRows = [], rankingRows = []) => {
+  const rankingsByClanId = {};
+  rankingRows.forEach((ranking) => {
+    rankingsByClanId[ranking.id] = ranking;
+  });
+
+  return clanRows.map((clan) => {
+    const ranking = rankingsByClanId[clan.id] || {};
+    const members = memberRows
       .filter((member) => member.clan_id === clan.id)
-      .map((member) => String(member.user_id)),
-  }));
+      .map((member) => {
+        const userId = String(member.user_id);
+
+        return {
+          userId,
+          role:
+            member.role ||
+            (userId === String(clan.owner_id) ? "admin" : "member"),
+          joinedAt: member.created_at,
+        };
+      });
+
+    return {
+      id: clan.id,
+      name: clan.name,
+      tag: clan.tag,
+      ownerId: String(clan.owner_id),
+      createdAt: clan.created_at,
+      members,
+      memberIds: members.map((member) => member.userId),
+      ranking,
+    };
+  });
+};
 
 const mapCapsuleRows = (capsuleRows = [], memberRows = []) =>
   capsuleRows.map((capsule) => ({
@@ -46,6 +76,8 @@ const mapCapsuleRows = (capsuleRows = [], memberRows = []) =>
     challenge: capsule.challenge,
     ownerId: String(capsule.owner_id),
     durationDays: capsule.duration_days,
+    visibility: capsule.visibility || "private",
+    roomCode: capsule.room_code || "",
     startsAt: capsule.starts_at,
     endsAt: capsule.ends_at,
     createdAt: capsule.created_at,
@@ -70,16 +102,29 @@ export default function Clan({ pageMode = "clans" }) {
   const [capsules, setCapsules] = useState([]);
   const [friends, setFriends] = useState([]);
   const [usersById, setUsersById] = useState({});
+  const [progressByUserId, setProgressByUserId] = useState({});
   const [clanName, setClanName] = useState("");
   const [clanTag, setClanTag] = useState("");
+  const [clanSearchQuery, setClanSearchQuery] = useState("");
+  const [selectedClanId, setSelectedClanId] = useState("");
   const [capsuleTitle, setCapsuleTitle] = useState("");
   const [capsuleChallenge, setCapsuleChallenge] = useState("");
   const [durationDays, setDurationDays] = useState(30);
+  const [capsuleVisibility, setCapsuleVisibility] = useState("private");
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
+  const [friendInviteQuery, setFriendInviteQuery] = useState("");
+  const [roomCodeQuery, setRoomCodeQuery] = useState("");
+  const [roomCodeResult, setRoomCodeResult] = useState(null);
+  const [isSearchingRoom, setIsSearchingRoom] = useState(false);
+  const [duelOpponentId, setDuelOpponentId] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingCapsule, setIsCreatingCapsule] = useState(false);
+  const durationWheelRef = useRef(null);
+  const durationWheelCleanupRef = useRef(null);
+  const durationKeyBufferRef = useRef("");
+  const durationKeyTimerRef = useRef(null);
 
   const showMessage = (text, type = "success") => {
     setMessage(text);
@@ -87,22 +132,42 @@ export default function Clan({ pageMode = "clans" }) {
   };
 
   const loadClans = useCallback(async () => {
-    const [
-      { data: clanRows, error: clanError },
-      { data: memberRows, error: memberError },
-    ] = await Promise.all([
-      supabase
-        .from("clans")
-        .select("id, name, tag, owner_id, created_at")
-        .order("created_at", { ascending: true }),
-      supabase.from("clan_members").select("clan_id, user_id, created_at"),
-    ]);
+    const { data: clanRows, error: clanError } = await supabase
+      .from("clans")
+      .select("id, name, tag, owner_id, created_at")
+      .order("created_at", { ascending: true });
+
+    let memberResponse = await supabase
+      .from("clan_members")
+      .select("clan_id, user_id, role, created_at");
+
+    if (
+      memberResponse.error &&
+      (memberResponse.error.code === "42703" ||
+        memberResponse.error.message?.toLowerCase().includes("role"))
+    ) {
+      memberResponse = await supabase
+        .from("clan_members")
+        .select("clan_id, user_id, created_at");
+    }
+
+    const { data: memberRows, error: memberError } = memberResponse;
 
     if (clanError || memberError) {
       throw clanError || memberError;
     }
 
-    setClans(mapClanRows(clanRows || [], memberRows || []));
+    const { data: rankingRows, error: rankingError } = await supabase
+      .from("clan_rankings")
+      .select("id, rank, member_count, total_xp, solved_count, attempts");
+
+    setClans(
+      mapClanRows(
+        clanRows || [],
+        memberRows || [],
+        rankingError ? [] : rankingRows || []
+      )
+    );
   }, []);
 
   const loadCapsules = useCallback(async () => {
@@ -113,7 +178,7 @@ export default function Clan({ pageMode = "clans" }) {
       supabase
         .from("time_capsules")
         .select(
-          "id, title, challenge, owner_id, duration_days, starts_at, ends_at, created_at"
+          "id, title, challenge, owner_id, duration_days, visibility, room_code, starts_at, ends_at, created_at"
         )
         .order("created_at", { ascending: false }),
       supabase
@@ -154,6 +219,34 @@ export default function Clan({ pageMode = "clans" }) {
       nextUsersById[String(user.id)] = user;
     });
     setUsersById(nextUsersById);
+
+    const { data: progressRows, error: progressError } = await supabase
+      .from("user_problem_progress")
+      .select("user_id, problem_id, solved_at, attempts, xp_awarded");
+
+    if (!progressError) {
+      const nextProgressByUserId = {};
+      (progressRows || []).forEach((row) => {
+        const userId = String(row.user_id);
+        if (!nextProgressByUserId[userId]) {
+          nextProgressByUserId[userId] = {
+            solvedCount: 0,
+            attempts: 0,
+            xpAwarded: 0,
+          };
+        }
+
+        nextProgressByUserId[userId].attempts += Number(row.attempts || 0);
+        nextProgressByUserId[userId].xpAwarded += Number(row.xp_awarded || 0);
+
+        if (row.solved_at) {
+          nextProgressByUserId[userId].solvedCount += 1;
+        }
+      });
+      setProgressByUserId(nextProgressByUserId);
+    } else {
+      setProgressByUserId({});
+    }
 
     const friendIds = new Set(
       (relations || [])
@@ -197,21 +290,107 @@ export default function Clan({ pageMode = "clans" }) {
   }, [loadPage]);
 
   const rankedClans = useMemo(
-    () =>
-      clans
-        .map((clan) => ({
-          ...clan,
-          memberCount: clan.memberIds.length,
-          totalXp: clan.memberIds.reduce(
-            (sum, memberId) => sum + Number(usersById[memberId]?.xp || 0),
-            0
-          ),
-        }))
-        .sort((a, b) => b.totalXp - a.totalXp || b.memberCount - a.memberCount),
-    [clans, usersById]
+    () => {
+      const sortedClans = clans
+        .map((clan) => {
+          const memberStats = clan.memberIds.reduce(
+            (stats, memberId) => {
+              const progress = progressByUserId[memberId] || {};
+              stats.totalXp += Number(usersById[memberId]?.xp || 0);
+              stats.solvedCount += Number(progress.solvedCount || 0);
+              stats.attempts += Number(progress.attempts || 0);
+              return stats;
+            },
+            { totalXp: 0, solvedCount: 0, attempts: 0 }
+          );
+
+          return {
+            ...clan,
+            memberCount: Number(
+              clan.ranking?.member_count ?? clan.memberIds.length
+            ),
+            totalXp: Number(clan.ranking?.total_xp ?? memberStats.totalXp),
+            solvedCount: Number(
+              clan.ranking?.solved_count ?? memberStats.solvedCount
+            ),
+            attempts: Number(clan.ranking?.attempts ?? memberStats.attempts),
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.totalXp - a.totalXp ||
+            b.solvedCount - a.solvedCount ||
+            b.memberCount - a.memberCount ||
+            a.name.localeCompare(b.name)
+        );
+
+      return sortedClans.map((clan, index) => ({
+        ...clan,
+        rank: index + 1,
+      }));
+    },
+    [clans, progressByUserId, usersById]
   );
 
   const myClan = clans.find((clan) => clan.memberIds.includes(currentUserId));
+
+  const filteredRankedClans = useMemo(() => {
+    const query = clanSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return rankedClans;
+    }
+
+    return rankedClans.filter((clan) => {
+      const clanFields = [clan.name, clan.tag, `#${clan.rank}`]
+        .join(" ")
+        .toLowerCase();
+      const memberFields = clan.memberIds
+        .map((memberId) => {
+          const member = usersById[memberId] || {};
+          return [
+            getDisplayName(member),
+            member.username,
+            member.country,
+          ].join(" ");
+        })
+        .join(" ")
+        .toLowerCase();
+
+      return `${clanFields} ${memberFields}`.includes(query);
+    });
+  }, [clanSearchQuery, rankedClans, usersById]);
+
+  const selectedClan = useMemo(
+    () => rankedClans.find((clan) => clan.id === selectedClanId),
+    [rankedClans, selectedClanId]
+  );
+
+  const selectedClanMembers = useMemo(() => {
+    if (!selectedClan) {
+      return [];
+    }
+
+    return [...selectedClan.members].sort((first, second) => {
+      const firstIsAdmin = first.role === "admin" ? 1 : 0;
+      const secondIsAdmin = second.role === "admin" ? 1 : 0;
+      const firstXp = Number(usersById[first.userId]?.xp || 0);
+      const secondXp = Number(usersById[second.userId]?.xp || 0);
+
+      return (
+        secondIsAdmin - firstIsAdmin ||
+        secondXp - firstXp ||
+        getDisplayName(usersById[first.userId]).localeCompare(
+          getDisplayName(usersById[second.userId])
+        )
+      );
+    });
+  }, [selectedClan, usersById]);
+
+  const myClanRank = useMemo(
+    () => rankedClans.find((clan) => clan.id === myClan?.id)?.rank,
+    [myClan?.id, rankedClans]
+  );
 
   const myCapsules = useMemo(
     () =>
@@ -243,15 +422,47 @@ export default function Clan({ pageMode = "clans" }) {
       )
   );
 
-  const confirmBeyondRecommendedLimit = () => {
-    if (activeJoinedCapsules.length < RECOMMENDED_ACTIVE_LIMIT) {
-      return true;
+  const filteredInviteFriends = useMemo(() => {
+    const query = friendInviteQuery.trim().toLowerCase();
+    if (!query) return friends;
+
+    return friends.filter((friend) => {
+      const displayName = getDisplayName(friend).toLowerCase();
+      const email = String(friend.username || "").toLowerCase();
+      return displayName.includes(query) || email.includes(query);
+    });
+  }, [friendInviteQuery, friends]);
+
+  const insertClanMember = async (memberRow) => {
+    const { error } = await supabase.from("clan_members").insert(memberRow);
+
+    if (
+      error &&
+      memberRow.role &&
+      (error.code === "42703" || error.message?.toLowerCase().includes("role"))
+    ) {
+      const rowWithoutRole = { ...memberRow };
+      delete rowWithoutRole.role;
+      return supabase.from("clan_members").insert(rowWithoutRole);
     }
 
-    return window.confirm(
-      "You already have 3 active Time Capsules. We recommend focusing on no more than 3 challenge tracks at once. Continue anyway?"
-    );
+    return { error };
   };
+
+  const openClanDetails = (clanId) => {
+    setSelectedClanId(clanId);
+    setActiveView("clan-detail");
+  };
+
+  const isClanAdmin = (clan) =>
+    Boolean(
+      clan &&
+        (clan.ownerId === currentUserId ||
+          clan.members.some(
+            (member) =>
+              member.userId === currentUserId && member.role === "admin"
+          ))
+    );
 
   const updateMembership = async (clanId) => {
     showMessage("");
@@ -266,9 +477,10 @@ export default function Clan({ pageMode = "clans" }) {
       return;
     }
 
-    const { error: insertError } = await supabase.from("clan_members").insert({
+    const { error: insertError } = await insertClanMember({
       clan_id: clanId,
       user_id: currentUserId,
+      role: "member",
     });
 
     if (insertError) {
@@ -302,9 +514,10 @@ export default function Clan({ pageMode = "clans" }) {
     }
 
     await supabase.from("clan_members").delete().eq("user_id", currentUserId);
-    const { error: memberError } = await supabase.from("clan_members").insert({
+    const { error: memberError } = await insertClanMember({
       clan_id: newClan.id,
       user_id: currentUserId,
+      role: "admin",
     });
 
     if (memberError) {
@@ -319,6 +532,63 @@ export default function Clan({ pageMode = "clans" }) {
     await loadClans();
   };
 
+  const removeClanMember = async (clan, memberId) => {
+    showMessage("");
+
+    if (!isClanAdmin(clan)) {
+      showMessage("Only clan admins can remove members.", "error");
+      return;
+    }
+
+    if (String(memberId) === String(clan.ownerId)) {
+      showMessage("The clan owner cannot be removed. Delete the clan instead.", "error");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("clan_members")
+      .delete()
+      .eq("clan_id", clan.id)
+      .eq("user_id", String(memberId));
+
+    if (error) {
+      showMessage(error.message, "error");
+      return;
+    }
+
+    showMessage("Clan member removed.");
+    await loadClans();
+  };
+
+  const deleteClan = async (clan) => {
+    showMessage("");
+
+    if (!isClanAdmin(clan)) {
+      showMessage("Only clan admins can delete this clan.", "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${clan.name}? This removes the clan and all memberships.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabase.from("clans").delete().eq("id", clan.id);
+
+    if (error) {
+      showMessage(error.message, "error");
+      return;
+    }
+
+    setSelectedClanId("");
+    setActiveView("clans");
+    showMessage(`${clan.name} deleted.`);
+    await loadClans();
+  };
+
   const toggleFriend = (friendId) => {
     const normalizedId = String(friendId);
     setSelectedFriendIds((current) =>
@@ -327,6 +597,126 @@ export default function Clan({ pageMode = "clans" }) {
         : [...current, normalizedId]
     );
   };
+
+  const applyDuration = useCallback((days) => {
+    setDurationDays(clampDuration(days));
+  }, []);
+
+  const adjustDuration = useCallback((change) => {
+    setDurationDays((currentDays) =>
+      clampDuration(Number(currentDays || MIN_DURATION) + change)
+    );
+  }, []);
+
+  const handleDurationWheel = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    event.nativeEvent?.stopImmediatePropagation?.();
+    if (event.deltaY === 0) return;
+    adjustDuration(event.deltaY < 0 ? 1 : -1);
+  }, [adjustDuration]);
+
+  const resetDurationKeyBuffer = useCallback(() => {
+    if (durationKeyTimerRef.current) {
+      clearTimeout(durationKeyTimerRef.current);
+      durationKeyTimerRef.current = null;
+    }
+
+    durationKeyBufferRef.current = "";
+  }, []);
+
+  const scheduleDurationKeyReset = useCallback(() => {
+    if (durationKeyTimerRef.current) {
+      clearTimeout(durationKeyTimerRef.current);
+    }
+
+    durationKeyTimerRef.current = setTimeout(() => {
+      durationKeyBufferRef.current = "";
+      durationKeyTimerRef.current = null;
+    }, 850);
+  }, []);
+
+  const handleDurationKeyDown = useCallback((event) => {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const typedValue = `${durationKeyBufferRef.current}${event.key}`
+        .replace(/^0+/, "")
+        .slice(0, 3);
+      const nextBuffer = typedValue || "0";
+      const requestedDays = Number(nextBuffer);
+
+      durationKeyBufferRef.current = nextBuffer;
+
+      if (requestedDays > MAX_DURATION) {
+        applyDuration(MAX_DURATION);
+        durationKeyBufferRef.current = String(MAX_DURATION);
+      } else if (requestedDays >= MIN_DURATION) {
+        applyDuration(requestedDays);
+      }
+
+      scheduleDurationKeyReset();
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      adjustDuration(1);
+      resetDurationKeyBuffer();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      adjustDuration(-1);
+      resetDurationKeyBuffer();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      resetDurationKeyBuffer();
+    }
+  }, [adjustDuration, applyDuration, resetDurationKeyBuffer, scheduleDurationKeyReset]);
+
+  const setDurationWheelNode = useCallback((node) => {
+    durationWheelCleanupRef.current?.();
+    durationWheelCleanupRef.current = null;
+    durationWheelRef.current = node;
+
+    if (!node) {
+      return;
+    }
+
+    node.addEventListener("wheel", handleDurationWheel, { passive: false });
+    durationWheelCleanupRef.current = () => {
+      node.removeEventListener("wheel", handleDurationWheel);
+    };
+  }, [handleDurationWheel]);
+
+  useEffect(
+    () => () => {
+      durationWheelCleanupRef.current?.();
+      durationWheelCleanupRef.current = null;
+    },
+    []
+  );
+
+  useEffect(() => () => resetDurationKeyBuffer(), [resetDurationKeyBuffer]);
+
+  const durationWheelValues = useMemo(() => {
+    const values = [];
+    for (let offset = -2; offset <= 2; offset += 1) {
+      const nextValue = durationDays + offset;
+      if (nextValue >= MIN_DURATION && nextValue <= MAX_DURATION) {
+        values.push(nextValue);
+      }
+    }
+
+    return values;
+  }, [durationDays]);
+  const activeDurationIndex = durationWheelValues.indexOf(durationDays);
 
   const createCapsule = async () => {
     const title = capsuleTitle.trim();
@@ -354,10 +744,6 @@ export default function Clan({ pageMode = "clans" }) {
       return;
     }
 
-    if (!confirmBeyondRecommendedLimit()) {
-      return;
-    }
-
     setIsCreatingCapsule(true);
     const startsAt = new Date();
     const endsAt = new Date(
@@ -371,6 +757,8 @@ export default function Clan({ pageMode = "clans" }) {
         challenge,
         owner_id: currentUserId,
         duration_days: normalizedDuration,
+        visibility: capsuleVisibility,
+        room_code: generateRoomCode(),
         starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
       })
@@ -414,19 +802,15 @@ export default function Clan({ pageMode = "clans" }) {
     setCapsuleTitle("");
     setCapsuleChallenge("");
     setSelectedFriendIds([]);
+    setFriendInviteQuery("");
+    setCapsuleVisibility("private");
     setDurationDays(30);
     setIsCreatingCapsule(false);
-    showMessage(
-      `Created ${title} as ${getCapsuleMode(memberRows.length)}. Invitations sent.`
-    );
+    showMessage(`Created ${title}. Share the room code or invite friends.`);
     await loadCapsules();
   };
 
   const joinCapsule = async (capsuleId) => {
-    if (!confirmBeyondRecommendedLimit()) {
-      return;
-    }
-
     const { error } = await supabase
       .from("time_capsule_members")
       .update({
@@ -445,6 +829,82 @@ export default function Clan({ pageMode = "clans" }) {
     await loadCapsules();
   };
 
+  const joinCapsuleFromRoomCode = async (capsule) => {
+    if (!capsule?.id) {
+      return;
+    }
+
+    const joinedAt = new Date().toISOString();
+    const { error } = await supabase.from("time_capsule_members").upsert(
+      {
+        capsule_id: capsule.id,
+        user_id: currentUserId,
+        invited_by: capsule.ownerId || currentUserId,
+        status: "joined",
+        joined_at: joinedAt,
+      },
+      { onConflict: "capsule_id,user_id" }
+    );
+
+    if (error) {
+      showMessage(error.message, "error");
+      return;
+    }
+
+    showMessage(`Joined ${capsule.title}.`);
+    setRoomCodeResult(null);
+    setRoomCodeQuery("");
+    await loadCapsules();
+  };
+
+  const searchRoomCode = async () => {
+    const normalizedCode = normalizeRoomCode(roomCodeQuery);
+    setRoomCodeQuery(normalizedCode);
+    setRoomCodeResult(null);
+    showMessage("");
+
+    if (normalizedCode.length < 4) {
+      showMessage("Enter a valid room code.", "error");
+      return;
+    }
+
+    setIsSearchingRoom(true);
+
+    const { data: capsuleRow, error: capsuleError } = await supabase
+      .from("time_capsules")
+      .select(
+        "id, title, challenge, owner_id, duration_days, visibility, room_code, starts_at, ends_at, created_at"
+      )
+      .eq("room_code", normalizedCode)
+      .maybeSingle();
+
+    if (capsuleError) {
+      showMessage(capsuleError.message, "error");
+      setIsSearchingRoom(false);
+      return;
+    }
+
+    if (!capsuleRow) {
+      showMessage("No Time Capsule found for that room code.", "error");
+      setIsSearchingRoom(false);
+      return;
+    }
+
+    const { data: memberRows, error: memberError } = await supabase
+      .from("time_capsule_members")
+      .select("capsule_id, user_id, status, joined_at")
+      .eq("capsule_id", capsuleRow.id);
+
+    if (memberError) {
+      showMessage(memberError.message, "error");
+      setIsSearchingRoom(false);
+      return;
+    }
+
+    setRoomCodeResult(mapCapsuleRows([capsuleRow], memberRows || [])[0]);
+    setIsSearchingRoom(false);
+  };
+
   const declineCapsule = async (capsuleId) => {
     const { error } = await supabase
       .from("time_capsule_members")
@@ -461,6 +921,25 @@ export default function Clan({ pageMode = "clans" }) {
     await loadCapsules();
   };
 
+  const openCapsuleDashboard = (capsuleId) => {
+    navigate(`/time-capsules/${capsuleId}`);
+  };
+
+  const startOnlineDuel = () => {
+    if (!duelOpponentId) {
+      showMessage("Choose one friend for the Online Duel.", "error");
+      return;
+    }
+
+    const opponent = friends.find(
+      (friend) => String(friend.id) === String(duelOpponentId)
+    );
+
+    showMessage(
+      `Duel War Zone invite prepared for ${getDisplayName(opponent)}. Matchmaking storage will plug in next.`
+    );
+  };
+
   const renderCapsuleCard = (capsule) => {
     const currentMembership = capsule.members.find(
       (member) => member.userId === currentUserId
@@ -474,7 +953,18 @@ export default function Clan({ pageMode = "clans" }) {
     const daysRemaining = getDaysRemaining(capsule.endsAt);
 
     return (
-      <article className="capsule-card" key={capsule.id}>
+      <article
+        className="capsule-card clickable-capsule-card"
+        key={capsule.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => openCapsuleDashboard(capsule.id)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            openCapsuleDashboard(capsule.id);
+          }
+        }}
+      >
         <div className="capsule-card-top">
           <span className="capsule-mode">{getCapsuleMode(participantCount)}</span>
           <strong>{daysRemaining} days left</strong>
@@ -494,10 +984,17 @@ export default function Clan({ pageMode = "clans" }) {
         </div>
         <div className="capsule-meta">
           <span>{capsule.durationDays} day challenge</span>
+          <span>{capsule.visibility}</span>
           <span>
             {joinedCount}/{participantCount} joined
           </span>
         </div>
+        {capsule.roomCode && (
+          <div className="capsule-room-code">
+            <span>Room code</span>
+            <strong>{capsule.roomCode}</strong>
+          </div>
+        )}
         <div className="capsule-members">
           {capsule.members
             .filter((member) => member.status !== "declined")
@@ -516,12 +1013,21 @@ export default function Clan({ pageMode = "clans" }) {
         </div>
         {currentMembership?.status === "invited" && (
           <div className="capsule-actions">
-            <button className="capsule-primary" onClick={() => joinCapsule(capsule.id)}>
+            <button
+              className="capsule-primary"
+              onClick={(event) => {
+                event.stopPropagation();
+                joinCapsule(capsule.id);
+              }}
+            >
               Join challenge
             </button>
             <button
               className="capsule-secondary"
-              onClick={() => declineCapsule(capsule.id)}
+              onClick={(event) => {
+                event.stopPropagation();
+                declineCapsule(capsule.id);
+              }}
             >
               Decline
             </button>
@@ -545,9 +1051,6 @@ export default function Clan({ pageMode = "clans" }) {
               : "Find a team, compare clan XP, and compete together."}
           </p>
         </div>
-        <button className="clan-back-button" onClick={() => navigate("/home")}>
-          Back
-        </button>
       </div>
 
       {message && <p className={`clan-message ${messageType}`}>{message}</p>}
@@ -562,12 +1065,20 @@ export default function Clan({ pageMode = "clans" }) {
             <div className="my-clan-summary">
               <span>Current clan</span>
               <strong>{myClan?.name || "No clan joined"}</strong>
-              <small>{myClan ? `[${myClan.tag}]` : "Choose your team"}</small>
+              <small>
+                {myClan
+                  ? `[${myClan.tag}] Rank #${myClanRank || "-"}`
+                  : "Choose your team"}
+              </small>
             </div>
 
             <nav className="clan-navigation" aria-label="Clan page sections">
               <button
-                className={activeView === "clans" ? "active" : ""}
+                className={
+                  activeView === "clans" || activeView === "clan-detail"
+                    ? "active"
+                    : ""
+                }
                 onClick={() => setActiveView("clans")}
               >
                 Find Clans
@@ -593,6 +1104,12 @@ export default function Clan({ pageMode = "clans" }) {
                 Aura Farming
                 <small>Soon</small>
               </button>
+              <button
+                className={activeView === "duel" ? "active" : ""}
+                onClick={() => setActiveView("duel")}
+              >
+                Online Duel
+              </button>
             </nav>
           </aside>
         )}
@@ -608,12 +1125,8 @@ export default function Clan({ pageMode = "clans" }) {
                   <h2>Create a Time Capsule</h2>
                   <p>
                     Invite friends into a fixed learning challenge. Seven days is
-                    the minimum; 30, 60, 90, and 120 days are recommended.
+                    the minimum; use the day dial to lock anything up to 365 days.
                   </p>
-                </div>
-                <div className="capsule-rule">
-                  <strong>2 players</strong>
-                  <span>becomes a Duel War Zone</span>
                 </div>
               </section>
 
@@ -640,56 +1153,137 @@ export default function Clan({ pageMode = "clans" }) {
                 <div className="duration-section">
                   <div className="duration-heading">
                     <span>Duration</span>
-                    <small>Minimum 7 days, maximum 365 days</small>
                   </div>
-                  <div className="duration-options">
-                    {RECOMMENDED_DURATIONS.map((days) => (
+                  <div
+                    className="duration-scroll"
+                    aria-label="Capsule duration"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => adjustDuration(1)}
+                      aria-label="Increase duration"
+                    >
+                      ^
+                    </button>
+                    <div
+                      className="duration-wheel"
+                      ref={setDurationWheelNode}
+                      role="spinbutton"
+                      tabIndex={0}
+                      aria-label="Type a duration from 7 to 365 days"
+                      aria-valuemin={MIN_DURATION}
+                      aria-valuemax={MAX_DURATION}
+                      aria-valuenow={durationDays}
+                      onKeyDown={handleDurationKeyDown}
+                    >
+                      {durationWheelValues.map((days, index) => {
+                        const distance = Math.abs(index - activeDurationIndex);
+                        const positionClass =
+                          index < activeDurationIndex
+                            ? "above"
+                            : index > activeDurationIndex
+                              ? "below"
+                              : "center";
+
+                        return (
+                          <button
+                            type="button"
+                            className={`duration-wheel-item ${positionClass} ${
+                              durationDays === days ? "active" : ""
+                            } distance-${distance}`}
+                            key={days}
+                            onClick={() => applyDuration(days)}
+                          >
+                            {days}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => adjustDuration(-1)}
+                      aria-label="Decrease duration"
+                    >
+                      v
+                    </button>
+                    <div className="duration-summary">
+                      <strong>{durationDays} days</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="capsule-visibility-section">
+                  <div className="duration-heading">
+                    <span>Access</span>
+                    <small>Private uses invites and room code. Public can be joined by code.</small>
+                  </div>
+                  <div className="capsule-visibility-options">
+                    {["private", "public"].map((visibility) => (
                       <button
-                        className={durationDays === days ? "active" : ""}
-                        key={days}
-                        onClick={() => setDurationDays(days)}
+                        type="button"
+                        className={capsuleVisibility === visibility ? "active" : ""}
+                        key={visibility}
+                        onClick={() => setCapsuleVisibility(visibility)}
                       >
-                        <strong>{days}</strong>
-                        <span>days</span>
+                        <strong>{visibility}</strong>
+                        <span>
+                          {visibility === "private"
+                            ? "Invite first"
+                            : "Room-code join"}
+                        </span>
                       </button>
                     ))}
-                    <label className="custom-duration">
-                      <span>Custom</span>
-                      <input
-                        type="number"
-                        min={MIN_DURATION}
-                        max={MAX_DURATION}
-                        value={durationDays}
-                        onChange={(event) =>
-                          setDurationDays(Number(event.target.value))
-                        }
-                      />
-                    </label>
                   </div>
                 </div>
 
                 <div className="friend-invite-section">
                   <div className="duration-heading">
                     <span>Invite friends</span>
-                    <small>At least one friend is required</small>
+                    <small>{selectedFriendIds.length} selected</small>
                   </div>
                   {friends.length === 0 ? (
                     <p className="capsule-empty">
                       Add a friend before creating a Time Capsule.
                     </p>
                   ) : (
-                    <div className="friend-invite-list">
-                      {friends.map((friend) => (
-                        <label key={friend.id}>
-                          <input
-                            type="checkbox"
-                            checked={selectedFriendIds.includes(String(friend.id))}
-                            onChange={() => toggleFriend(friend.id)}
-                          />
-                          <span>{getDisplayName(friend)}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <>
+                      <label className="friend-invite-search">
+                        <input
+                          value={friendInviteQuery}
+                          placeholder="Search by name or email"
+                          onChange={(event) =>
+                            setFriendInviteQuery(event.target.value)
+                          }
+                        />
+                      </label>
+                      {filteredInviteFriends.length === 0 ? (
+                        <p className="capsule-empty compact">
+                          No friends match that search.
+                        </p>
+                      ) : (
+                        <div className="friend-invite-list">
+                          {filteredInviteFriends.map((friend) => {
+                            const friendId = String(friend.id);
+                            const selected = selectedFriendIds.includes(friendId);
+
+                            return (
+                              <label
+                                className={selected ? "selected" : ""}
+                                key={friend.id}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleFriend(friend.id)}
+                                />
+                                <span>{getDisplayName(friend)}</span>
+                                <small>{Number(friend.xp || 0)} XP</small>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -700,6 +1294,42 @@ export default function Clan({ pageMode = "clans" }) {
                 >
                   {isCreatingCapsule ? "Sealing capsule..." : "Create Time Capsule"}
                 </button>
+              </section>
+
+              <section className="capsule-room-panel">
+                <div className="capsule-section-heading">
+                  <div>
+                    <span className="clan-eyebrow">Room code invite</span>
+                    <h2>Find a Capsule</h2>
+                  </div>
+                </div>
+                <div className="capsule-room-search">
+                  <input
+                    value={roomCodeQuery}
+                    placeholder="Enter room code"
+                    onChange={(event) =>
+                      setRoomCodeQuery(normalizeRoomCode(event.target.value))
+                    }
+                  />
+                  <button type="button" onClick={searchRoomCode}>
+                    {isSearchingRoom ? "Searching..." : "Search"}
+                  </button>
+                </div>
+                {roomCodeResult && (
+                  <article className="capsule-room-result">
+                    <div>
+                      <span>{roomCodeResult.visibility}</span>
+                      <h3>{roomCodeResult.title}</h3>
+                      <p>{roomCodeResult.challenge}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => joinCapsuleFromRoomCode(roomCodeResult)}
+                    >
+                      Join by code
+                    </button>
+                  </article>
+                )}
               </section>
 
               <section className="capsule-list-section">
@@ -725,15 +1355,32 @@ export default function Clan({ pageMode = "clans" }) {
           )}
 
           {!isLoading && activeView === "clans" && (
-            <section>
+            <section className="clan-list-panel">
               <div className="capsule-section-heading">
                 <div>
                   <span className="clan-eyebrow">Find your team</span>
                   <h2>Available Clans</h2>
                 </div>
+                <strong>{filteredRankedClans.length} found</strong>
               </div>
-              <div className="clan-card-grid">
-                {rankedClans.map((clan) => {
+
+              <label className="clan-search-field">
+                <span>Search clans</span>
+                <input
+                  value={clanSearchQuery}
+                  placeholder="Search by clan, tag, member, or country"
+                  onChange={(event) => setClanSearchQuery(event.target.value)}
+                />
+              </label>
+
+              {filteredRankedClans.length === 0 ? (
+                <p className="capsule-empty">
+                  No clan matches that search. Try a clan tag, member name, or
+                  country.
+                </p>
+              ) : (
+                <div className="clan-card-grid">
+                  {filteredRankedClans.map((clan) => {
                   const isJoined = clan.memberIds.includes(currentUserId);
                   return (
                     <article className="side-clan-card" key={clan.id}>
@@ -741,23 +1388,36 @@ export default function Clan({ pageMode = "clans" }) {
                         <span>[{clan.tag}]</span>
                         <h3>{clan.name}</h3>
                       </div>
-                      <strong>{clan.totalXp} XP</strong>
-                      <p>{clan.memberCount} members</p>
-                      <button
-                        disabled={isJoined}
-                        onClick={() => updateMembership(clan.id)}
-                      >
-                        {isJoined ? "Current clan" : "Join clan"}
-                      </button>
+                      <strong>Rank #{clan.rank}</strong>
+                      <p>
+                        {clan.memberCount} members - {clan.totalXp} XP -{" "}
+                        {clan.solvedCount} solves
+                      </p>
+                      <div className="clan-card-actions">
+                        <button
+                          type="button"
+                          onClick={() => openClanDetails(clan.id)}
+                        >
+                          View clan
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isJoined}
+                          onClick={() => updateMembership(clan.id)}
+                        >
+                          {isJoined ? "Current clan" : "Join clan"}
+                        </button>
+                      </div>
                     </article>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </section>
           )}
 
           {!isLoading && activeView === "ranking" && (
-            <section>
+            <section className="clan-ranking-panel">
               <div className="capsule-section-heading">
                 <div>
                   <span className="clan-eyebrow">Leaderboard</span>
@@ -767,17 +1427,145 @@ export default function Clan({ pageMode = "clans" }) {
               <div className="clan-ranking-list">
                 {rankedClans.map((clan, index) => (
                   <div key={clan.id}>
-                    <strong>#{index + 1}</strong>
+                    <strong>#{clan.rank || index + 1}</strong>
                     <span>
                       <b>{clan.name}</b>
                       <small>
-                        [{clan.tag}] {clan.memberCount} members
+                        [{clan.tag}] {clan.memberCount} members -{" "}
+                        {clan.solvedCount} solves
                       </small>
                     </span>
                     <b>{clan.totalXp} XP</b>
+                    <button
+                      type="button"
+                      onClick={() => openClanDetails(clan.id)}
+                    >
+                      Open
+                    </button>
                   </div>
                 ))}
               </div>
+            </section>
+          )}
+
+          {!isLoading && activeView === "clan-detail" && (
+            <section className="clan-detail-panel">
+              {!selectedClan ? (
+                <>
+                  <div className="capsule-section-heading">
+                    <div>
+                      <span className="clan-eyebrow">Clan not found</span>
+                      <h2>Choose another clan</h2>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="capsule-secondary"
+                    onClick={() => setActiveView("clans")}
+                  >
+                    Back to clans
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="clan-detail-heading">
+                    <div>
+                      <span className="clan-eyebrow">Clan command center</span>
+                      <h2>{selectedClan.name}</h2>
+                      <p>
+                        [{selectedClan.tag}] led by{" "}
+                        {getDisplayName(usersById[selectedClan.ownerId])}
+                      </p>
+                    </div>
+                    <div className="clan-detail-actions">
+                      <button
+                        type="button"
+                        className="capsule-secondary"
+                        onClick={() => setActiveView("clans")}
+                      >
+                        Back
+                      </button>
+                      {isClanAdmin(selectedClan) && (
+                        <button
+                          type="button"
+                          className="clan-danger-button"
+                          onClick={() => deleteClan(selectedClan)}
+                        >
+                          Delete clan
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="clan-detail-stats">
+                    <article>
+                      <span>Rank</span>
+                      <strong>#{selectedClan.rank}</strong>
+                    </article>
+                    <article>
+                      <span>Total XP</span>
+                      <strong>{selectedClan.totalXp}</strong>
+                    </article>
+                    <article>
+                      <span>Solved</span>
+                      <strong>{selectedClan.solvedCount}</strong>
+                    </article>
+                    <article>
+                      <span>Members</span>
+                      <strong>{selectedClan.memberCount}</strong>
+                    </article>
+                  </div>
+
+                  <div className="clan-member-list">
+                    <div className="capsule-section-heading">
+                      <div>
+                        <span className="clan-eyebrow">Roster</span>
+                        <h3>Members inside this clan</h3>
+                      </div>
+                    </div>
+
+                    {selectedClanMembers.map((member) => {
+                      const profile = usersById[member.userId] || {};
+                      const progress = progressByUserId[member.userId] || {};
+                      const isOwner = member.userId === selectedClan.ownerId;
+                      const canRemove =
+                        isClanAdmin(selectedClan) && !isOwner;
+
+                      return (
+                        <article className="clan-member-row" key={member.userId}>
+                          <div className="clan-member-avatar">
+                            {getDisplayName(profile).charAt(0)}
+                          </div>
+                          <div>
+                            <strong>{getDisplayName(profile)}</strong>
+                            <small>
+                              {profile.country || "Country not set"} -{" "}
+                              {isOwner ? "Owner" : member.role}
+                            </small>
+                          </div>
+                          <span>{Number(profile.xp || 0)} XP</span>
+                          <span>{Number(progress.solvedCount || 0)} solved</span>
+                          {canRemove ? (
+                            <button
+                              type="button"
+                              className="clan-danger-button"
+                              onClick={() =>
+                                removeClanMember(selectedClan, member.userId)
+                              }
+                            >
+                              Remove
+                            </button>
+                          ) : (
+                            <small className="clan-member-lock">
+                              {isOwner ? "Protected" : "Member"}
+                            </small>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </section>
           )}
 
@@ -819,6 +1607,66 @@ export default function Clan({ pageMode = "clans" }) {
                 <span>Team support</span>
                 <span>Challenge milestones</span>
               </div>
+            </section>
+          )}
+
+          {activeView === "duel" && (
+            <section className="clan-duel-panel">
+              <span className="clan-eyebrow">Two-player arena</span>
+              <h2>Online Duel War Zone</h2>
+              <p>
+                Start a focused head-to-head challenge from Clans. Time Capsules
+                stay as group learning commitments; duels live here.
+              </p>
+
+              <div className="duel-arena-grid">
+                <div className="duel-card current">
+                  <span>You</span>
+                  <strong>{getDisplayName(currentUser)}</strong>
+                  <small>{Number(currentUser.xp || 0)} XP</small>
+                </div>
+                <div className="duel-versus">VS</div>
+                <div className="duel-card">
+                  <span>Opponent</span>
+                  <strong>
+                    {duelOpponentId
+                      ? getDisplayName(
+                          friends.find(
+                            (friend) => String(friend.id) === String(duelOpponentId)
+                          )
+                        )
+                      : "Choose friend"}
+                  </strong>
+                  <small>Live duel invite</small>
+                </div>
+              </div>
+
+              <div className="duel-friend-list">
+                {friends.length === 0 ? (
+                  <p className="capsule-empty">
+                    Add friends before starting an online duel.
+                  </p>
+                ) : (
+                  friends.map((friend) => (
+                    <button
+                      type="button"
+                      className={
+                        String(friend.id) === String(duelOpponentId) ? "active" : ""
+                      }
+                      key={friend.id}
+                      onClick={() => setDuelOpponentId(String(friend.id))}
+                    >
+                      <span>{getDisplayName(friend).charAt(0)}</span>
+                      <strong>{getDisplayName(friend)}</strong>
+                      <small>{Number(friend.xp || 0)} XP</small>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <button className="duel-start-button" onClick={startOnlineDuel}>
+                Create duel invite
+              </button>
             </section>
           )}
         </main>

@@ -1,39 +1,54 @@
 .power-hunt-page {
   min-height: 100vh;
-  background: #0b1713;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    #030405;
+  background-size: 28px 28px;
   color: #edf7ef;
 }
 
 .power-hunt-header {
   min-height: 100px;
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 20px;
-  border-bottom: 1px solid #294a3d;
+  border-bottom: 1px solid rgba(232, 235, 239, 0.18);
   padding: 16px clamp(18px, 4vw, 56px);
-  background: #10241d;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    #0d1117;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.3);
 }
 
 .power-hunt-header button,
-.game-result button {
+.power-game-sidebar button {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid #406657;
+  border: 1px solid rgba(232, 235, 239, 0.7);
   border-radius: 6px;
   padding: 0 12px;
-  background: #152f26;
-  color: #dff4e5;
+  background:
+    linear-gradient(135deg, #f8f8f4, #c8ced7 42%, #75808b);
+  color: #07090d;
   font-size: 11px;
   font-weight: 900;
+  text-transform: uppercase;
 }
 
 .power-hunt-header span,
-.game-eyebrow {
-  color: #70e0a2;
+.game-eyebrow,
+.ability-panel > span,
+.shop-panel > span,
+.character-shop-panel > span,
+.social-xp-panel > span,
+.event-log-panel > span,
+.game-control-list > span {
+  color: #f4c95d;
   font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
@@ -41,21 +56,23 @@
 
 .power-hunt-header h1 {
   margin: 3px 0;
-  font-family: Consolas, "Courier New", monospace;
+  font-family: "Orbitron", Consolas, "Courier New", monospace;
   font-size: clamp(25px, 4vw, 42px);
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .power-hunt-header p {
+  max-width: 760px;
   margin: 0;
-  color: #9fc2ae;
+  color: #aeb7c2;
   font-size: 12px;
+  line-height: 1.6;
 }
 
 .power-hunt-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 18px;
   padding: 20px;
 }
@@ -70,45 +87,59 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
-  border: 1px solid #294a3d;
-  background: #294a3d;
+  overflow: hidden;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  background: rgba(232, 235, 239, 0.18);
 }
 
 .power-game-hud div {
   display: grid;
   gap: 3px;
-  padding: 11px 14px;
-  background: #10241d;
+  padding: 12px 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    #0d1117;
 }
 
 .power-game-hud span {
-  color: #719584;
+  color: #87929f;
   font-size: 8px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .power-game-hud strong {
-  color: #e7f5eb;
-  font-family: Consolas, "Courier New", monospace;
+  color: #f4c95d;
+  font-family: "Orbitron", Consolas, "Courier New", monospace;
   font-size: 16px;
 }
 
 .forest-board {
   width: 100%;
-  aspect-ratio: 3 / 2;
-  min-height: 440px;
+  aspect-ratio: 19 / 13;
+  min-height: 520px;
   display: grid;
   grid-template-columns: repeat(var(--grid-width), minmax(0, 1fr));
   grid-template-rows: repeat(var(--grid-height), minmax(0, 1fr));
   position: relative;
   overflow: hidden;
-  border: 4px solid #315544;
+  border: 2px solid rgba(232, 235, 239, 0.28);
+  border-radius: 10px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 50%, transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.025) 50%, transparent 50%),
-    #183a2c;
-  background-size: 14px 14px;
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(244, 201, 93, 0.1), transparent 42%),
+    #0b1012;
+  background-position:
+    var(--scroll-y) var(--scroll-x),
+    var(--scroll-x) var(--scroll-y),
+    center,
+    center;
+  background-size: 18px 18px, 18px 18px, auto, auto;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   image-rendering: pixelated;
 }
 
@@ -118,55 +149,101 @@
   display: grid;
   place-items: center;
   position: relative;
-  border: 1px solid rgba(104, 164, 128, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.025);
 }
 
-.tree-tile {
-  background: rgba(6, 24, 17, 0.15);
+.forest-tile::before {
+  width: 18%;
+  height: 18%;
+  content: "";
+  position: absolute;
+  opacity: 0.42;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.pixel-tree {
-  width: 56%;
-  height: 70%;
+.terrain-0 {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.terrain-1 {
+  background: rgba(97, 211, 194, 0.035);
+}
+
+.terrain-2 {
+  background: rgba(244, 201, 93, 0.028);
+}
+
+.terrain-3 {
+  background: rgba(239, 102, 85, 0.032);
+}
+
+.terrain-4 {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.encounter-chest {
+  box-shadow: inset 0 0 18px rgba(244, 201, 93, 0.08);
+}
+
+.encounter-trap {
+  box-shadow: inset 0 0 18px rgba(239, 102, 85, 0.12);
+}
+
+.encounter-powerup {
+  box-shadow: inset 0 0 18px rgba(97, 211, 194, 0.1);
+}
+
+.pixel-chest {
+  width: 46%;
+  height: 34%;
+  display: block;
   position: relative;
-  background: #286946;
+  background: #9f7620;
   box-shadow:
-    -4px 4px 0 #286946,
-    4px 4px 0 #286946,
-    0 6px 0 #163d2b;
+    0 -5px 0 #f4c95d,
+    0 5px 0 #5e4210,
+    0 0 16px rgba(244, 201, 93, 0.38);
 }
 
-.pixel-tree::before {
-  width: 70%;
-  height: 55%;
+.pixel-chest::before {
+  width: 18%;
+  height: 45%;
   content: "";
   position: absolute;
-  top: -18%;
-  left: 15%;
-  background: #3a8b59;
-  box-shadow:
-    -4px 3px 0 #3a8b59,
-    4px 3px 0 #3a8b59;
+  top: 28%;
+  left: 41%;
+  background: #f8f8f4;
 }
 
-.pixel-tree::after {
-  width: 22%;
-  height: 38%;
+.pixel-trap {
+  width: 44%;
+  height: 44%;
+  display: block;
+  position: relative;
+  transform: rotate(45deg);
+  background: #d44f42;
+  box-shadow:
+    0 0 0 4px #361010,
+    0 0 16px rgba(239, 102, 85, 0.5);
+}
+
+.pixel-trap::before {
+  width: 14%;
+  height: 70%;
   content: "";
   position: absolute;
-  bottom: -20%;
-  left: 39%;
-  background: #81593d;
+  top: 15%;
+  left: 43%;
+  background: #fff2f0;
 }
 
-.pixel-power-up,
-.power-legend i {
-  width: 34%;
+.pixel-power-up {
+  width: 38%;
   aspect-ratio: 1;
   display: block;
   position: relative;
   transform: rotate(45deg);
-  animation: power-pulse 800ms steps(2, end) infinite;
+  animation: power-pulse 900ms steps(2, end) infinite;
 }
 
 .pixel-power-up::before {
@@ -179,22 +256,24 @@
   background: #fff7cf;
 }
 
-.pixel-power-up.energy,
-.power-legend i.energy {
-  background: #ffd24a;
-  box-shadow: 0 0 0 3px #8a6414, 0 0 14px #ffd24a;
+.pixel-power-up.freeze {
+  background: #a9d7ff;
+  box-shadow: 0 0 0 3px #315a7f, 0 0 18px #a9d7ff;
 }
 
-.pixel-power-up.aura,
-.power-legend i.aura {
+.pixel-power-up.shield {
   background: #65e7d1;
-  box-shadow: 0 0 0 3px #137d70, 0 0 14px #65e7d1;
+  box-shadow: 0 0 0 3px #137d70, 0 0 18px #65e7d1;
 }
 
-.pixel-power-up.boost,
-.power-legend i.boost {
-  background: #ff7868;
-  box-shadow: 0 0 0 3px #9a3329, 0 0 14px #ff7868;
+.pixel-power-up.surge {
+  background: #ffd24a;
+  box-shadow: 0 0 0 3px #8a6414, 0 0 18px #ffd24a;
+}
+
+.pixel-power-up.warp {
+  background: #c297ff;
+  box-shadow: 0 0 0 3px #5f359e, 0 0 18px #c297ff;
 }
 
 .pixel-scout {
@@ -207,7 +286,8 @@
   box-shadow:
     -4px 0 0 #ef6655,
     4px 0 0 #ef6655,
-    0 4px 0 #273c6e;
+    0 4px 0 #273c6e,
+    0 0 22px rgba(255, 255, 255, 0.28);
 }
 
 .pixel-scout::before {
@@ -261,32 +341,22 @@
   background: #61d3c2;
 }
 
-.game-result {
-  min-width: 230px;
-  display: grid;
-  justify-items: center;
-  gap: 9px;
-  position: absolute;
-  z-index: 8;
-  top: 50%;
-  left: 50%;
-  border: 2px solid #70e0a2;
-  border-radius: 7px;
-  padding: 20px;
-  background: #10241df2;
-  color: #e8f6ec;
-  transform: translate(-50%, -50%);
+.skin-cipher {
+  background: #c8ced7;
+  box-shadow:
+    -4px 0 0 #c8ced7,
+    4px 0 0 #c8ced7,
+    0 4px 0 #07090d,
+    0 0 22px rgba(200, 206, 215, 0.38);
 }
 
-.game-result strong {
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 20px;
-  text-transform: uppercase;
-}
-
-.game-result span {
-  color: #a9c8b5;
-  font-size: 10px;
+.skin-onyx {
+  background: #7560a8;
+  box-shadow:
+    -4px 0 0 #7560a8,
+    4px 0 0 #7560a8,
+    0 4px 0 #07090d,
+    0 0 22px rgba(194, 151, 255, 0.42);
 }
 
 .touch-game-controls {
@@ -300,10 +370,10 @@
 .touch-game-controls button {
   display: grid;
   place-items: center;
-  border: 1px solid #406657;
+  border: 1px solid rgba(232, 235, 239, 0.28);
   border-radius: 5px;
-  background: #152f26;
-  color: #dff4e5;
+  background: rgba(255, 255, 255, 0.07);
+  color: #edf7ef;
 }
 
 .touch-game-controls button:first-child {
@@ -318,8 +388,8 @@
 .touch-game-controls .dash-control {
   grid-column: 2;
   grid-row: 2;
-  border-color: #ef6655;
-  color: #ff9d91;
+  border-color: #f4c95d;
+  color: #f4c95d;
   font-family: Consolas, "Courier New", monospace;
   font-weight: 900;
 }
@@ -335,24 +405,28 @@
 }
 
 .power-game-sidebar {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #294a3d;
-  border-radius: 7px;
-  padding: 20px;
-  background: #10241d;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    #0d1117;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
 }
 
 .power-game-sidebar h2 {
-  margin: 5px 0 8px;
-  font-family: Consolas, "Courier New", monospace;
+  margin: -8px 0 0;
+  font-family: "Orbitron", Consolas, "Courier New", monospace;
   font-size: 28px;
   text-transform: uppercase;
 }
 
 .power-game-sidebar > p {
   margin: 0;
-  color: #9ebdab;
+  color: #aeb7c2;
   font-size: 11px;
   line-height: 1.6;
 }
@@ -361,9 +435,13 @@
   height: 115px;
   display: grid;
   place-items: center;
-  margin: 18px 0;
-  border: 1px solid #315544;
-  background: #183a2c;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 7px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    #07090d;
+  background-size: 14px 14px;
   image-rendering: pixelated;
 }
 
@@ -372,50 +450,111 @@
   height: 46px;
 }
 
-.game-control-list,
-.power-legend {
+.ability-panel,
+.shop-panel,
+.character-shop-panel,
+.social-xp-panel,
+.event-log-panel,
+.game-control-list {
   display: grid;
-  gap: 7px;
-  padding-top: 15px;
-  border-top: 1px solid #294a3d;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(232, 235, 239, 0.14);
 }
 
-.game-control-list > span,
-.power-legend > span {
-  margin-bottom: 3px;
-  color: #70e0a2;
-  font-size: 8px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.game-control-list div,
-.power-legend div {
+.ability-panel div,
+.shop-panel button,
+.character-shop-panel button,
+.social-xp-panel button,
+.game-control-list div {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  color: #d6e9dc;
+  border: 1px solid rgba(232, 235, 239, 0.14);
+  border-radius: 7px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #edf7ef;
+  text-align: left;
+}
+
+.shop-panel button,
+.character-shop-panel button,
+.social-xp-panel button {
+  min-height: 44px;
+}
+
+.shop-panel button:hover,
+.character-shop-panel button:hover,
+.social-xp-panel button:hover,
+.power-hunt-header button:hover,
+.ability-panel > button:hover {
+  border-color: rgba(255, 233, 163, 0.92);
+  background:
+    linear-gradient(135deg, #ffe9a3, #f4c95d 44%, #9f7620);
+  color: #07090d;
+}
+
+.character-shop-panel button.active {
+  border-color: rgba(244, 201, 93, 0.76);
+  color: #ffe9a3;
+  box-shadow: 0 0 20px rgba(244, 201, 93, 0.16);
+}
+
+.ability-panel strong,
+.shop-panel strong,
+.character-shop-panel strong,
+.game-control-list strong {
+  color: #edf7ef;
+  font-size: 11px;
+}
+
+.ability-panel small,
+.shop-panel small,
+.character-shop-panel small {
+  color: #aeb7c2;
   font-size: 10px;
 }
 
+.ability-panel > button {
+  justify-self: stretch;
+}
+
+.event-log-panel p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  border: 1px solid rgba(232, 235, 239, 0.12);
+  border-radius: 7px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #aeb7c2;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.event-log-panel p.gain {
+  color: #ffe9a3;
+}
+
+.event-log-panel p.loss {
+  color: #ffb3aa;
+}
+
+.event-log-panel p.power {
+  color: #a9d7ff;
+}
+
 .game-control-list kbd {
-  border: 1px solid #456a5a;
+  border: 1px solid rgba(232, 235, 239, 0.24);
   border-radius: 4px;
   padding: 5px;
-  background: #173128;
+  background: #07090d;
   color: #edf7ef;
   font-family: Consolas, "Courier New", monospace;
   text-align: center;
-}
-
-.power-legend {
-  margin-top: 18px;
-}
-
-.power-legend i {
-  width: 12px;
-  animation: none;
 }
 
 @keyframes power-pulse {
@@ -424,36 +563,27 @@
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1080px) {
   .power-hunt-layout {
     grid-template-columns: 1fr;
   }
 
   .power-game-sidebar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 150px minmax(180px, 0.7fr);
-    gap: 18px;
-    align-items: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .scout-preview {
-    margin: 0;
-  }
-
-  .power-legend {
-    margin-top: 0;
+  .power-game-sidebar > p,
+  .scout-preview,
+  .event-log-panel,
+  .game-control-list {
+    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 680px) {
   .power-hunt-header {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     padding: 14px;
-  }
-
-  .power-hunt-header > div {
-    grid-column: 1 / -1;
-    grid-row: 2;
   }
 
   .power-hunt-layout {
@@ -465,10 +595,10 @@
   }
 
   .forest-board {
-    min-height: 340px;
+    min-height: 380px;
   }
 
   .power-game-sidebar {
-    display: flex;
+    grid-template-columns: 1fr;
   }
 }

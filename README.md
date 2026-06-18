@@ -117,7 +117,7 @@ Set these before starting the backend:
 
 ```powershell
 $env:SUPABASE_URL="https://your-project.supabase.co"
-$env:SUPABASE_SECRET_KEY="sb_secret_your-secret-key"
+$env:SUPABASE_SECRET_KEY="<your-supabase-secret-key>"
 $env:TYPHON_URL="http://localhost:8000"
 npm run start:socket
 ```
@@ -165,7 +165,7 @@ npm run typhon:start
 Terminal 2:
 
 ```powershell
-$env:SUPABASE_SECRET_KEY="sb_secret_your-secret-key"
+$env:SUPABASE_SECRET_KEY="<your-supabase-secret-key>"
 npm run start:socket
 ```
 
@@ -183,6 +183,14 @@ Open `http://localhost:3000`.
 | --- | --- |
 | `npm start` | Start the React frontend |
 | `npm run start:socket` | Start REST API, judge service, and Socket.IO |
+| `.\start.ps1` or `start.cmd` | Start the frontend, backend, and Typhon |
+| `.\start.ps1 -WithoutTyphon` | Start only the frontend and backend |
+
+For a one-click Windows launch, double-click `start.cmd`. The launcher skips
+services that are already using their expected ports, starts Docker Desktop,
+and builds missing Typhon sandbox images on the first launch. To provide backend-only secrets, copy
+`.env.backend.local.example` to `.env.backend.local`; this local file is ignored
+by Git and its values are inherited by the backend process.
 | `npm run typhon:install` | Install Typhon Python dependencies |
 | `npm run typhon:build` | Build Typhon Python and Java sandbox images |
 | `npm run typhon:start` | Start Typhon on port 8000 |

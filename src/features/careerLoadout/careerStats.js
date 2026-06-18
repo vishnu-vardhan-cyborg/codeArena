@@ -177,8 +177,18 @@ export const buildCareerStats = ({
         .map(toDayKey)
     ),
   ];
-  const { current: currentStreak, longest: longestStreak } =
+  const { current: rawCurrentStreak, longest: longestStreak } =
     getStreaks(activityDays);
+  const latestActivityAt = activity
+    .map((item) => item.created_at || item.activity_date)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((first, second) => second - first)[0];
+  const currentStreak =
+    latestActivityAt && Date.now() - latestActivityAt.getTime() <= DAY_MS
+      ? rawCurrentStreak
+      : 0;
   const languages = getLanguageLoadout(activity);
   const activeDays = activityDays.length;
   const communityScore = friendsCount + followersCount + followingCount;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   CheckCircle2,
   Clock3,
@@ -28,7 +28,6 @@ const formatExecutionOutput = (result) => {
 };
 
 export default function Problem() {
-  const navigate = useNavigate();
   const { problemId } = useParams();
   const currentUser = useMemo(() => {
     try {
@@ -187,7 +186,6 @@ export default function Problem() {
             <h1>Problem unavailable</h1>
             <p>{loadError || "Problem not found."}</p>
           </div>
-          <button onClick={() => navigate("/home")}>Back</button>
         </div>
       </div>
     );
@@ -218,8 +216,6 @@ export default function Problem() {
             Attempts: {problem.attempts}
           </p>
         </div>
-
-        <button onClick={() => navigate("/home")}>Back</button>
       </div>
 
       <div className="problem-workspace">

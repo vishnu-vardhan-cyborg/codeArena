@@ -3,7 +3,9 @@
   z-index: 0;
   inset: 0;
   overflow: hidden;
-  background: #071116;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 7px),
+    #020303;
 }
 
 .space-code-scene canvas {
@@ -20,8 +22,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(4, 12, 16, 0.9) 0%, rgba(4, 12, 16, 0.48) 48%, rgba(4, 12, 16, 0.08) 100%),
-    linear-gradient(0deg, rgba(4, 12, 16, 0.68) 0%, transparent 42%);
+    linear-gradient(90deg, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.5) 48%, rgba(0, 0, 0, 0.12) 100%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, transparent 42%);
   pointer-events: none;
 }
 
@@ -31,10 +33,10 @@
   right: 3vw;
   bottom: 14%;
   left: 48%;
-  background: rgba(97, 211, 194, 0.35);
+  background: rgba(232, 235, 239, 0.5);
   box-shadow:
-    0 0 18px rgba(97, 211, 194, 0.35),
-    0 0 70px rgba(97, 211, 194, 0.16);
+    0 0 18px rgba(232, 235, 239, 0.38),
+    0 0 70px rgba(232, 235, 239, 0.18);
   pointer-events: none;
 }
 
@@ -43,8 +45,8 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 9px;
-  color: #9fded5;
-  font-family: Consolas, "Courier New", monospace;
+  color: #e8ebef;
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
@@ -53,9 +55,8 @@
 .preview-scene-status i {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
-  background: #61d3c2;
-  box-shadow: 0 0 12px #61d3c2;
+  background: #ffffff;
+  box-shadow: 0 0 12px #ffffff;
   animation: scene-status-pulse 1.8s ease-in-out infinite;
 }
 
@@ -68,8 +69,8 @@
 @media (max-width: 720px) {
   .space-scene-vignette {
     background:
-      linear-gradient(0deg, rgba(4, 12, 16, 0.78) 0%, rgba(4, 12, 16, 0.28) 72%),
-      rgba(4, 12, 16, 0.25);
+      linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 72%),
+      rgba(0, 0, 0, 0.25);
   }
 
   .space-scene-horizon {

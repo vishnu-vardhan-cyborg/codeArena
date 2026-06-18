@@ -1,0 +1,143 @@
+.season-details-page {
+  min-height: 100vh;
+  padding: clamp(18px, 3vw, 34px);
+  color: #f6f7f9;
+}
+
+.season-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 24px;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(232, 235, 239, 0.28);
+  border-radius: 8px;
+  padding: clamp(24px, 4vw, 44px);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.035) 0,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 16px
+    ),
+    linear-gradient(135deg, #020303, #0f1218 48%, #030405);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.6);
+}
+
+.season-kicker,
+.season-panel-heading span,
+.season-stats-panel span {
+  color: #e8ebef;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.season-hero h1 {
+  margin: 10px 0;
+  font-family: "Orbitron", "Inter", sans-serif;
+  font-size: clamp(38px, 7vw, 84px);
+  line-height: 0.95;
+}
+
+.season-hero p,
+.season-overview-panel p {
+  max-width: 760px;
+  margin: 0;
+  color: #aeb6c0;
+  line-height: 1.7;
+}
+
+.season-mark-card {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(232, 235, 239, 0.22);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.season-mark-card span {
+  font-family: "JetBrains Mono", monospace;
+  color: #f4c95d;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.season-mark-card strong {
+  font-family: "Orbitron", "Inter", sans-serif;
+  font-size: 42px;
+}
+
+.season-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.season-overview-panel,
+.season-stats-panel article {
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  background: rgba(12, 14, 18, 0.84);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+}
+
+.season-overview-panel {
+  padding: clamp(22px, 3vw, 34px);
+}
+
+.season-panel-heading h2 {
+  margin: 8px 0 12px;
+  font-family: "Orbitron", "Inter", sans-serif;
+}
+
+.season-track-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.season-track-list div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(232, 235, 239, 0.14);
+  padding: 12px;
+  color: #e8ebef;
+}
+
+.season-track-list svg,
+.season-stats-panel svg {
+  color: #f4c95d;
+}
+
+.season-stats-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.season-stats-panel article {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px 10px;
+  padding: 18px;
+}
+
+.season-stats-panel strong {
+  grid-column: 2;
+  font-size: 18px;
+}
+
+@media (max-width: 900px) {
+  .season-hero,
+  .season-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .season-mark-card {
+    min-height: 120px;
+  }
+}

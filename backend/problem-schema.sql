@@ -3,7 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.problems (
   id text primary key,
   title text not null,
-  difficulty text not null check (difficulty in ('Easy', 'Medium', 'Hard')),
+  difficulty text not null check (difficulty in ('Easy', 'Medium', 'Hard', 'Extreme')),
   description text not null,
   input_format text not null,
   output_format text not null,
@@ -18,6 +18,13 @@ create table if not exists public.problems (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.problems
+  drop constraint if exists problems_difficulty_check;
+
+alter table public.problems
+  add constraint problems_difficulty_check
+  check (difficulty in ('Easy', 'Medium', 'Hard', 'Extreme'));
 
 create table if not exists public.problem_test_cases (
   id uuid primary key default gen_random_uuid(),

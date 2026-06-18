@@ -8,13 +8,6 @@ export default function RabbitHole() {
   return (
     <div className="rabbit-page">
       <header className="rabbit-header">
-        <button
-          className="rabbit-back-button"
-          type="button"
-          onClick={() => navigate("/home")}
-        >
-          Back
-        </button>
         <div>
           <span className="rabbit-eyebrow">Guided learning maps</span>
           <h1>Rabbit Hole</h1>

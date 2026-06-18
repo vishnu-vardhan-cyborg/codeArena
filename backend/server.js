@@ -4,6 +4,7 @@ const { readJsonBody, sendJson } = require("./http");
 const { getProblem, judgeSubmission, listProblems } = require("./problems");
 const { adminKeyType, supabase } = require("./supabase");
 const { executeTyphon, getLanguages, requestTyphon } = require("./typhon");
+const { getUserProblemStats } = require("./userStats");
 
 const PORT = Number(process.env.SOCKET_PORT) || 4000;
 const MAX_ROOM_HISTORY = 100;
@@ -57,6 +58,16 @@ const requestHandler = async (request, response) => {
       sendJson(response, 200, {
         problems: await listProblems(url.searchParams.get("userId")),
       });
+      return;
+    }
+
+    const userStatsMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/problem-stats$/);
+    if (request.method === "GET" && userStatsMatch) {
+      sendJson(
+        response,
+        200,
+        await getUserProblemStats(decodeURIComponent(userStatsMatch[1]))
+      );
       return;
     }
 

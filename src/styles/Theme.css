@@ -77,7 +77,7 @@
 [data-theme="dark"] .home-topbar,
 [data-theme="dark"] .home-dashboard-panel,
 [data-theme="dark"] .home-quick-action,
-[data-theme="dark"] .profile-identity-panel,
+[data-theme="dark"] .profile-identity-card,
 [data-theme="dark"] .profile-stat-grid article,
 [data-theme="dark"] .streak-panel,
 [data-theme="dark"] .profile-network-panel,
@@ -94,6 +94,7 @@
 [data-theme="dark"] .chat-page .chat-sidebar,
 [data-theme="dark"] .chat-page .chat-panel,
 [data-theme="dark"] .chat-page .group-panel,
+[data-theme="dark"] .chat-page .group-popover,
 [data-theme="dark"] .chat-page .chat-panel-header,
 [data-theme="dark"] .chat-page .message-composer,
 [data-theme="dark"] .chat-header-status,
@@ -136,9 +137,13 @@
 
 [data-theme="dark"] .home-search-field,
 [data-theme="dark"] .chat-search,
+[data-theme="dark"] .chat-group-menu-button,
+[data-theme="dark"] .group-popover-close,
 [data-theme="dark"] .chat-page .message-composer textarea,
 [data-theme="dark"] .group-name-field input,
 [data-theme="dark"] .auth-field input,
+[data-theme="dark"] .auth-field select,
+[data-theme="dark"] .auth-field textarea,
 [data-theme="dark"] input,
 [data-theme="dark"] select,
 [data-theme="dark"] textarea {
@@ -239,7 +244,6 @@
 }
 
 [data-theme="dark"] .profile-back-button,
-[data-theme="dark"] .profile-upload,
 [data-theme="dark"] .profile-panel-heading > button,
 [data-theme="dark"] .profile-post-actions button,
 [data-theme="dark"] .profile-post-modal-heading > button,

@@ -1,5 +1,6 @@
 const { supabase, publicSupabase, hasServiceRole } = require("./supabase");
 const { executeTyphon } = require("./typhon");
+const { getUserProblemStats } = require("./userStats");
 
 const PUBLIC_PROBLEM_FIELDS = [
   "id",
@@ -119,13 +120,14 @@ const listProblems = async (userId) => {
     (data || []).map((problem) => problem.id)
   );
 
-  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2 };
+  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2, Extreme: 3 };
 
   return (data || [])
     .map((problem) => toPublicProblem(problem, progress.get(problem.id)))
     .sort(
       (first, second) =>
-        difficultyOrder[first.difficulty] - difficultyOrder[second.difficulty] ||
+        (difficultyOrder[first.difficulty] ?? 99) -
+          (difficultyOrder[second.difficulty] ?? 99) ||
         first.title.localeCompare(second.title)
     );
 };
@@ -186,7 +188,7 @@ const judgeSubmission = async ({
     const failure = problemError || testError;
     if (failure.message?.toLowerCase().includes("invalid api key")) {
       const error = new Error(
-        "The backend Supabase admin key is invalid. Set SUPABASE_SECRET_KEY to an sb_secret_... key, or use the legacy SUPABASE_SERVICE_ROLE_KEY, then restart the backend."
+        "The backend Supabase admin key is invalid. Set SUPABASE_SECRET_KEY to a backend-only Supabase secret key, or use the legacy SUPABASE_SERVICE_ROLE_KEY, then restart the backend."
       );
       error.statusCode = 503;
       throw error;
@@ -285,6 +287,8 @@ const judgeSubmission = async ({
   ]);
 
   const firstSolve = status === "Accepted" && !previousProgress?.solved_at;
+  const userProblemStats =
+    status === "Accepted" ? await getUserProblemStats(userId) : null;
 
   return {
     submissionId: submission.id,
@@ -304,6 +308,7 @@ const judgeSubmission = async ({
     bestRuntimeMs: updatedProgress?.best_runtime_ms ?? null,
     xpAwarded: firstSolve ? Number(problem.xp_reward || 0) : 0,
     totalXp: Number(updatedUser?.xp || 0),
+    streakDays: userProblemStats?.streakDays ?? null,
   };
 };
 

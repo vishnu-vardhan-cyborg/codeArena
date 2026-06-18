@@ -1,19 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bell, Check, UserPlus, UsersRound } from "lucide-react";
+import { Bell, Check, UserPlus, UsersRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import "../styles/Notifications.css";
+import {
+  broadcastNotificationCount,
+  loadUnreadNotificationSnapshot,
+  loadXpNotifications,
+  XP_NOTIFICATIONS_KEY,
+} from "../utils/notificationCenter";
 
-const XP_NOTIFICATIONS_KEY = "xpNotifications";
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
 const SOCIAL_TABLE_MISSING_CODES = new Set(["PGRST205", "42P01"]);
 
-const loadXpNotifications = () => {
-  try {
-    return JSON.parse(localStorage.getItem(XP_NOTIFICATIONS_KEY) || "[]");
-  } catch {
-    return [];
+const getNotificationBody = (notification) => {
+  if (notification.notification_type === "follow") {
+    return "followed you.";
   }
+
+  if (notification.notification_type === "post") {
+    return "shared a new post.";
+  }
+
+  if (notification.notification_type === "time_capsule_invite") {
+    const title = notification.metadata?.capsuleTitle || "a Time Capsule";
+    return `requested you to join ${title}.`;
+  }
+
+  return "sent you a notification.";
 };
 
 export default function Notifications() {
@@ -52,6 +66,7 @@ export default function Notifications() {
           "id, actor_id, notification_type, post_id, metadata, is_read, created_at"
         )
         .eq("recipient_id", currentUserId)
+        .eq("is_read", false)
         .neq("notification_type", "friend_request")
         .order("created_at", { ascending: false })
         .limit(100),
@@ -131,6 +146,9 @@ export default function Notifications() {
   const clearXpNotifications = () => {
     localStorage.removeItem(XP_NOTIFICATIONS_KEY);
     setXpNotifications([]);
+    loadUnreadNotificationSnapshot(currentUserId).then((snapshot) =>
+      broadcastNotificationCount(snapshot.count)
+    );
   };
 
   const acceptRequest = async (request) => {
@@ -147,6 +165,9 @@ export default function Notifications() {
     ]);
 
     fetchNotifications();
+    loadUnreadNotificationSnapshot(currentUserId).then((snapshot) =>
+      broadcastNotificationCount(snapshot.count)
+    );
   };
 
   const rejectRequest = async (requestId) => {
@@ -156,6 +177,9 @@ export default function Notifications() {
       .eq("id", requestId);
 
     fetchNotifications();
+    loadUnreadNotificationSnapshot(currentUserId).then((snapshot) =>
+      broadcastNotificationCount(snapshot.count)
+    );
   };
 
   const markAllRead = async () => {
@@ -171,15 +195,16 @@ export default function Notifications() {
       .in("id", unreadIds);
 
     if (!error) {
-      setSocialNotifications((items) =>
-        items.map((item) => ({ ...item, is_read: true }))
+      setSocialNotifications([]);
+      loadUnreadNotificationSnapshot(currentUserId).then((snapshot) =>
+        broadcastNotificationCount(snapshot.count)
       );
     }
   };
 
   const unreadCount = useMemo(
-    () => socialNotifications.filter((item) => !item.is_read).length,
-    [socialNotifications]
+    () => requests.length + socialNotifications.length,
+    [requests.length, socialNotifications.length]
   );
   const hasNotifications =
     requests.length > 0 ||
@@ -192,16 +217,8 @@ export default function Notifications() {
         <div>
           <span>Activity center</span>
           <h1>Notifications</h1>
-          <p>Friend requests, follows, and posts from your network.</p>
+          <p>Friend requests, capsule invites, follows, and posts.</p>
         </div>
-        <button
-          className="notifications-back-button"
-          type="button"
-          onClick={() => navigate("/home")}
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
       </header>
 
       {socialSetupMissing && (
@@ -303,15 +320,17 @@ export default function Notifications() {
                           notification.actor?.username ||
                           "Arena player"}
                       </strong>
-                      <p>
-                        {notification.notification_type === "follow"
-                          ? "followed you."
-                          : "shared a new post."}
-                      </p>
+                      <p>{getNotificationBody(notification)}</p>
                       {notification.notification_type === "post" &&
                         notification.metadata?.preview && (
                           <blockquote>
                             {notification.metadata.preview}
+                          </blockquote>
+                        )}
+                      {notification.notification_type === "time_capsule_invite" &&
+                        notification.metadata?.roomCode && (
+                          <blockquote>
+                            Room code: {notification.metadata.roomCode}
                           </blockquote>
                         )}
                       <small>

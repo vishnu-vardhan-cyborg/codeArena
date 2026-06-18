@@ -68,6 +68,82 @@ export const submitProblem = (problemId, payload) =>
     body: JSON.stringify(payload),
   });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getLocalDateKey = (value) => {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const calculateRollingStreak = (activityRows = []) => {
+  const activityDates = activityRows
+    .map((row) => row.created_at || row.activity_date)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((first, second) => second - first);
+
+  if (activityDates.length === 0) return 0;
+
+  const latestActivity = activityDates[0];
+  if (Date.now() - latestActivity.getTime() > DAY_MS) {
+    return 0;
+  }
+
+  const activeDays = new Set(activityDates.map(getLocalDateKey));
+  const cursor = new Date(latestActivity);
+  cursor.setHours(0, 0, 0, 0);
+
+  let streak = 0;
+  while (activeDays.has(getLocalDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+};
+
+const loadUserActivityFromSupabase = async (userId) => {
+  const { data, error } = await supabase
+    .from("user_activity")
+    .select("id, activity_type, problem_id, activity_date, metadata, created_at")
+    .eq("user_id", String(userId))
+    .eq("activity_type", "problem_submission")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  if (error) throw error;
+
+  return {
+    activity: data || [],
+    streakDays: calculateRollingStreak(data || []),
+    activeDays: new Set((data || []).map((item) => item.activity_date)).size,
+    lastSolvedAt: data?.[0]?.created_at || null,
+  };
+};
+
+export const loadUserProblemStats = async (userId) => {
+  if (!userId) {
+    return {
+      activity: [],
+      streakDays: 0,
+      activeDays: 0,
+      lastSolvedAt: null,
+    };
+  }
+
+  try {
+    return await request(
+      `/api/users/${encodeURIComponent(userId)}/problem-stats`
+    );
+  } catch {
+    return loadUserActivityFromSupabase(userId);
+  }
+};
+
 const PUBLIC_PROBLEM_FIELDS = [
   "id",
   "title",
@@ -111,7 +187,7 @@ const loadProblemsFromSupabase = async (userId, problemId = "") => {
     );
   }
 
-  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2 };
+  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2, Extreme: 3 };
 
   return problemData
     .map((problem) => {
@@ -125,7 +201,8 @@ const loadProblemsFromSupabase = async (userId, problemId = "") => {
     })
     .sort(
       (first, second) =>
-        difficultyOrder[first.difficulty] - difficultyOrder[second.difficulty] ||
+        (difficultyOrder[first.difficulty] ?? 99) -
+          (difficultyOrder[second.difficulty] ?? 99) ||
         first.title.localeCompare(second.title)
     );
 };

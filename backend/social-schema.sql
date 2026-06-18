@@ -34,13 +34,34 @@ create table if not exists public.social_notifications (
   recipient_id text not null,
   actor_id text not null,
   notification_type text not null
-    check (notification_type in ('follow', 'friend_request', 'post')),
+    check (
+      notification_type in (
+        'follow',
+        'friend_request',
+        'post',
+        'time_capsule_invite'
+      )
+    ),
   post_id uuid references public.posts(id) on delete cascade,
   metadata jsonb not null default '{}'::jsonb,
   is_read boolean not null default false,
   created_at timestamptz not null default now(),
   check (recipient_id <> actor_id)
 );
+
+alter table public.social_notifications
+  drop constraint if exists social_notifications_notification_type_check;
+
+alter table public.social_notifications
+  add constraint social_notifications_notification_type_check
+  check (
+    notification_type in (
+      'follow',
+      'friend_request',
+      'post',
+      'time_capsule_invite'
+    )
+  );
 
 -- The current frontend uses the Supabase publishable/anon key with a custom
 -- lusers session instead of Supabase Auth. Keep these prototype tables open
@@ -144,5 +165,56 @@ drop trigger if exists posts_notify_trigger on public.posts;
 create trigger posts_notify_trigger
 after insert on public.posts
 for each row execute function public.notify_new_post();
+
+create or replace function public.notify_time_capsule_invite()
+returns trigger
+language plpgsql
+as $$
+declare
+  capsule_title text;
+  capsule_room_code text;
+begin
+  if to_regclass('public.social_notifications') is null then
+    return new;
+  end if;
+
+  if new.status = 'invited' then
+    select title, room_code
+    into capsule_title, capsule_room_code
+    from public.time_capsules
+    where id = new.capsule_id;
+
+    insert into public.social_notifications (
+      recipient_id,
+      actor_id,
+      notification_type,
+      metadata
+    )
+    values (
+      new.user_id,
+      new.invited_by,
+      'time_capsule_invite',
+      jsonb_build_object(
+        'capsuleId', new.capsule_id,
+        'capsuleTitle', capsule_title,
+        'roomCode', capsule_room_code
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+do $$
+begin
+  if to_regclass('public.time_capsule_members') is not null then
+    drop trigger if exists time_capsule_invite_notify_trigger
+      on public.time_capsule_members;
+    create trigger time_capsule_invite_notify_trigger
+    after insert on public.time_capsule_members
+    for each row execute function public.notify_time_capsule_invite();
+  end if;
+end $$;
 
 notify pgrst, 'reload schema';

@@ -183,7 +183,7 @@
 
 .capsule-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: center;
   margin-bottom: 16px;
@@ -207,26 +207,6 @@
   margin: 0;
   color: #c2d0d1;
   line-height: 1.6;
-}
-
-.capsule-rule {
-  min-width: 160px;
-  display: grid;
-  gap: 4px;
-  border: 1px solid #3e595d;
-  border-radius: 7px;
-  padding: 15px;
-  background: #182e35;
-}
-
-.capsule-rule strong {
-  color: #ef6655;
-  font-size: 19px;
-}
-
-.capsule-rule span {
-  color: #d7e3e3;
-  font-size: 11px;
 }
 
 .capsule-create-panel,
@@ -274,6 +254,26 @@
 .duration-section,
 .friend-invite-section {
   margin-top: 20px;
+}
+
+.friend-invite-search {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: #3d4b4f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.friend-invite-search input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid #cbd6d7;
+  border-radius: 7px;
+  padding: 0 12px;
+  background: #fff;
+  color: #182428;
+  outline: none;
 }
 
 .duration-heading {
@@ -331,6 +331,175 @@
   text-align: center;
 }
 
+.duration-scroll {
+  display: grid;
+  grid-template-columns: minmax(140px, 190px) minmax(0, 1fr);
+  grid-template-rows: 38px 174px 38px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f8fafa;
+}
+
+.duration-scroll > button,
+.capsule-visibility-options button,
+.capsule-room-search button,
+.capsule-room-result button,
+.duel-start-button,
+.capsule-detail-header > button,
+.capsule-message-composer button {
+  min-height: 40px;
+  border: 1px solid #cbd6d7;
+  border-radius: 6px;
+  background: #fff;
+  color: #182428;
+  font-weight: 900;
+}
+
+.duration-scroll > button {
+  min-height: 38px;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #edf2f2);
+}
+
+.duration-wheel {
+  height: 174px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  border: 1px solid #d8e0e1;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(17, 139, 124, 0.16), transparent 48%),
+    linear-gradient(180deg, #edf3f3, #ffffff 44%, #ffffff 56%, #edf3f3);
+  perspective: 420px;
+  position: relative;
+}
+
+.duration-wheel::before,
+.duration-wheel::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: rgba(17, 139, 124, 0.35);
+}
+
+.duration-wheel::before {
+  top: 64px;
+}
+
+.duration-wheel::after {
+  bottom: 64px;
+}
+
+.duration-wheel button {
+  width: min(104px, 80%);
+  min-height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #748387;
+  font-size: 18px;
+  font-weight: 900;
+  opacity: 0.26;
+  transform: scale(0.76) rotateX(26deg);
+  transition:
+    transform 260ms ease,
+    opacity 260ms ease,
+    background 260ms ease,
+    color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.duration-wheel button.distance-1 {
+  opacity: 0.5;
+  transform: scale(0.88) rotateX(16deg);
+}
+
+.duration-wheel button.above {
+  transform-origin: bottom center;
+}
+
+.duration-wheel button.below {
+  transform-origin: top center;
+}
+
+.duration-wheel button.active {
+  min-height: 48px;
+  color: #0a5d53;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(17, 139, 124, 0.22);
+  opacity: 1;
+  transform: scale(1.14) rotateX(0deg);
+  font-size: 30px;
+}
+
+.duration-summary {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  justify-self: start;
+  display: grid;
+  grid-template-columns: minmax(116px, 132px);
+  align-items: center;
+  gap: 14px;
+}
+
+.duration-scroll > strong,
+.duration-summary > strong {
+  display: grid;
+  place-items: center;
+  min-width: 132px;
+  min-height: 132px;
+  border: 1px solid #cbd6d7;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0 56%, #eef4f4 57% 100%);
+  color: #ef6655;
+  text-align: center;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.capsule-visibility-section {
+  margin-top: 20px;
+}
+
+.capsule-visibility-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.capsule-visibility-options button {
+  min-height: 72px;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  text-align: left;
+  padding: 10px 13px;
+  text-transform: capitalize;
+}
+
+.capsule-visibility-options button span {
+  color: #718084;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.capsule-visibility-options button.active {
+  border-color: #118b7c;
+  background: #e9f7f3;
+  color: #087565;
+}
+
 .friend-invite-list {
   display: flex;
   flex-wrap: wrap;
@@ -347,6 +516,17 @@
   background: #f8fafa;
   font-size: 12px;
   font-weight: 800;
+}
+
+.friend-invite-list label.selected {
+  border-color: #118b7c;
+  background: #e9f7f3;
+  color: #087565;
+}
+
+.friend-invite-list small {
+  color: #78868a;
+  font-size: 10px;
 }
 
 .capsule-create-button,
@@ -372,8 +552,69 @@
   opacity: 0.55;
 }
 
-.capsule-list-section {
-  margin-top: 32px;
+.capsule-room-panel {
+  margin-top: 22px;
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+}
+
+.clan-page .capsule-list-section {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  border: 1px solid #cbd6d7;
+  border-radius: 12px;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 250, 0.96));
+}
+
+.capsule-room-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.capsule-room-search input,
+.capsule-message-composer input {
+  min-height: 44px;
+  border: 1px solid #cbd6d7;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #fff;
+  color: #182428;
+  font: inherit;
+  outline: none;
+}
+
+.capsule-room-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  border: 1px solid #cbd6d7;
+  border-radius: 7px;
+  padding: 14px;
+  background: #f8fafa;
+}
+
+.capsule-room-result span {
+  color: #118b7c;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-room-result h3,
+.capsule-room-result p {
+  margin: 0;
+}
+
+.capsule-room-result p {
+  color: #66757a;
 }
 
 .capsule-section-heading {
@@ -381,7 +622,7 @@
   justify-content: space-between;
   align-items: end;
   gap: 18px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .capsule-section-heading h2 {
@@ -389,42 +630,69 @@
 }
 
 .capsule-section-heading > strong {
-  color: #647277;
+  min-width: 78px;
+  border: 1px solid #cbd6d7;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #fff;
+  color: #118b7c;
+  text-align: center;
   font-size: 13px;
+  font-weight: 900;
 }
 
 .capsule-grid,
 .clan-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .capsule-card,
 .side-clan-card {
   border: 1px solid #cbd6d7;
-  border-radius: 7px;
-  padding: 17px;
+  border-radius: 10px;
+  padding: 20px;
   background: #fff;
+}
+
+.clickable-capsule-card {
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.clickable-capsule-card:hover {
+  border-color: #118b7c;
+  transform: translateY(-1px);
 }
 
 .capsule-card-top {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
   color: #627176;
   font-size: 11px;
 }
 
 .capsule-mode {
+  border: 1px solid #cfe1df;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #eef8f5;
   color: #118b7c;
   font-weight: 900;
   text-transform: uppercase;
 }
 
+.capsule-card-top > strong {
+  color: #ef6655;
+  white-space: nowrap;
+}
+
 .capsule-card h3,
 .side-clan-card h3 {
-  margin: 14px 0 5px;
+  margin: 17px 0 8px;
   font-size: 19px;
 }
 
@@ -439,7 +707,7 @@
 .capsule-progress {
   height: 7px;
   overflow: hidden;
-  margin-top: 17px;
+  margin-top: 18px;
   border-radius: 4px;
   background: #e1e8e8;
 }
@@ -452,17 +720,50 @@
 }
 
 .capsule-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
   color: #78868a;
   font-size: 10px;
 }
 
+.capsule-meta span {
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dbe5e5;
+  border-radius: 7px;
+  padding: 7px;
+  background: #f8fbfb;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.capsule-room-code {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px dashed #b8c7c9;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfdfd;
+  color: #69777b;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.capsule-room-code strong {
+  color: #ef6655;
+  letter-spacing: 0.08em;
+}
+
 .capsule-members {
   display: flex;
-  margin-top: 14px;
+  margin-top: 16px;
+  padding-left: 2px;
 }
 
 .capsule-members span {
@@ -487,7 +788,7 @@
 .capsule-actions {
   display: flex;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .capsule-secondary {
@@ -504,6 +805,11 @@
   padding: 20px;
   background: #f8fafa;
   color: #69777b;
+}
+
+.capsule-empty.compact {
+  padding: 12px 14px;
+  font-size: 12px;
 }
 
 .side-clan-card {
@@ -600,6 +906,462 @@
   font-size: 12px;
 }
 
+.clan-duel-panel {
+  min-height: 420px;
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 24px;
+  background: #fff;
+}
+
+.clan-duel-panel h2,
+.capsule-detail-header h1,
+.capsule-friends-panel h2,
+.capsule-discussion-panel h2 {
+  margin: 6px 0 8px;
+}
+
+.clan-duel-panel p {
+  max-width: 720px;
+  margin: 0;
+  color: #66757a;
+  line-height: 1.65;
+}
+
+.duel-arena-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.duel-card {
+  min-height: 130px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(135deg, #f8fafa, #eef3f3);
+}
+
+.duel-card span,
+.duel-card small {
+  color: #718084;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.duel-card strong {
+  font-size: 24px;
+}
+
+.duel-card.current {
+  border-color: #118b7c;
+}
+
+.duel-versus {
+  width: 62px;
+  height: 62px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #182428;
+  color: #f5c451;
+  font-weight: 900;
+}
+
+.duel-friend-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.duel-friend-list button {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #cbd6d7;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f8fafa;
+  color: #182428;
+  text-align: left;
+}
+
+.duel-friend-list button.active {
+  border-color: #ef6655;
+  background: #fff3ef;
+}
+
+.duel-friend-list button > span {
+  grid-row: span 2;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #182428;
+  color: #fff;
+  font-weight: 900;
+}
+
+.duel-friend-list small {
+  color: #718084;
+}
+
+.duel-start-button {
+  margin-top: 16px;
+  border-color: #ef6655;
+  background: #ef6655;
+}
+
+.capsule-detail-page {
+  display: grid;
+  gap: 18px;
+}
+
+.capsule-detail-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+}
+
+.capsule-detail-header h1 {
+  font-size: clamp(30px, 4vw, 48px);
+}
+
+.capsule-detail-header p {
+  margin: 0;
+  color: #647277;
+}
+
+.capsule-live-code {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed #b8c7c9;
+  border-radius: 7px;
+  padding: 11px 13px;
+  text-align: right;
+}
+
+.capsule-live-code span {
+  color: #118b7c;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-live-code strong {
+  color: #ef6655;
+  letter-spacing: 0.08em;
+}
+
+.capsule-score-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.capsule-score-strip div {
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 15px;
+  background: #fff;
+}
+
+.capsule-score-strip span {
+  color: #718084;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-score-strip strong {
+  display: block;
+  margin-top: 5px;
+  color: #182428;
+  font-size: 28px;
+}
+
+.capsule-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.capsule-friends-panel,
+.capsule-score-panel,
+.capsule-discussion-panel {
+  border: 1px solid #cbd6d7;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
+}
+
+.capsule-friend-stack {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.capsule-friend-stack > div {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d8e0e1;
+  border-radius: 7px;
+  padding: 9px;
+  background: #f8fafa;
+}
+
+.capsule-friend-stack img,
+.capsule-friend-stack > div > span {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.capsule-friend-stack > div > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #182428;
+  color: #fff;
+  font-weight: 900;
+}
+
+.capsule-friend-stack strong,
+.capsule-friend-stack small {
+  display: block;
+}
+
+.capsule-friend-stack small {
+  color: #718084;
+  text-transform: capitalize;
+}
+
+.capsule-live-graph {
+  border: 1px solid #d8e0e1;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafa;
+}
+
+.capsule-live-graph svg {
+  width: 100%;
+  min-height: 230px;
+  display: block;
+}
+
+.capsule-live-graph line {
+  stroke: #d7e0e1;
+  stroke-dasharray: 5 7;
+}
+
+.capsule-live-graph polyline {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.capsule-live-graph text {
+  fill: #718084;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.capsule-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.capsule-graph-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d8e0e1;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #526166;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.capsule-graph-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.capsule-leaderboard-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.capsule-leaderboard-panel > div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d8e0e1;
+  border-radius: 7px;
+  padding: 12px;
+  background: #fff;
+}
+
+.capsule-leaderboard-panel > div > strong,
+.capsule-leaderboard-panel > div > b {
+  color: #ef6655;
+}
+
+.capsule-leaderboard-panel small {
+  display: block;
+  color: #718084;
+}
+
+.capsule-message-list {
+  height: 420px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 14px;
+  padding-right: 4px;
+}
+
+.capsule-message-list > p {
+  color: #718084;
+}
+
+.capsule-message {
+  max-width: 86%;
+  align-self: flex-start;
+  border: 1px solid #d8e0e1;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #f8fafa;
+}
+
+.capsule-message.mine {
+  align-self: flex-end;
+  border-color: #118b7c;
+  background: #e9f7f3;
+}
+
+.capsule-message p {
+  margin: 4px 0;
+  color: #334247;
+  line-height: 1.45;
+}
+
+.capsule-message small {
+  color: #718084;
+  font-size: 10px;
+}
+
+.capsule-message-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+[data-theme="dark"] .duration-scroll,
+[data-theme="dark"] .duration-scroll > button,
+[data-theme="dark"] .duration-wheel button,
+[data-theme="dark"] .duration-scroll > strong,
+[data-theme="dark"] .capsule-visibility-options button,
+[data-theme="dark"] .friend-invite-search input,
+[data-theme="dark"] .capsule-room-panel,
+[data-theme="dark"] .capsule-room-search input,
+[data-theme="dark"] .capsule-room-result,
+[data-theme="dark"] .capsule-room-search button,
+[data-theme="dark"] .capsule-room-result button,
+[data-theme="dark"] .clan-page .capsule-list-section,
+[data-theme="dark"] .capsule-section-heading > strong,
+[data-theme="dark"] .capsule-mode,
+[data-theme="dark"] .capsule-meta span,
+[data-theme="dark"] .capsule-room-code,
+[data-theme="dark"] .clan-duel-panel,
+[data-theme="dark"] .duel-card,
+[data-theme="dark"] .duel-friend-list button,
+[data-theme="dark"] .capsule-detail-header,
+[data-theme="dark"] .capsule-detail-header > button,
+[data-theme="dark"] .capsule-score-strip div,
+[data-theme="dark"] .capsule-friends-panel,
+[data-theme="dark"] .capsule-score-panel,
+[data-theme="dark"] .capsule-discussion-panel,
+[data-theme="dark"] .capsule-friend-stack > div,
+[data-theme="dark"] .capsule-live-graph,
+[data-theme="dark"] .capsule-leaderboard-panel > div,
+[data-theme="dark"] .capsule-message,
+[data-theme="dark"] .capsule-message-composer input,
+[data-theme="dark"] .capsule-message-composer button {
+  border-color: #35464b;
+  background: #172226;
+  color: #e6eeee;
+}
+
+[data-theme="dark"] .duration-wheel {
+  border-color: #35464b;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(89, 211, 198, 0.13), transparent 48%),
+    linear-gradient(180deg, #111a1d, #172226 44%, #172226 56%, #111a1d);
+}
+
+[data-theme="dark"] .duration-wheel button {
+  background: transparent;
+  color: #8aa0a4;
+}
+
+[data-theme="dark"] .duration-wheel button.active,
+[data-theme="dark"] .capsule-visibility-options button.active,
+[data-theme="dark"] .friend-invite-list label.selected,
+[data-theme="dark"] .duel-friend-list button.active,
+[data-theme="dark"] .capsule-message.mine {
+  border-color: #397b70;
+  background: #213b38;
+  color: #a9e2d8;
+}
+
+[data-theme="dark"] .capsule-detail-header p,
+[data-theme="dark"] .clan-duel-panel p,
+[data-theme="dark"] .capsule-room-result p,
+[data-theme="dark"] .capsule-score-strip span,
+[data-theme="dark"] .capsule-friend-stack small,
+[data-theme="dark"] .capsule-leaderboard-panel small,
+[data-theme="dark"] .capsule-message p,
+[data-theme="dark"] .capsule-graph-legend span,
+[data-theme="dark"] .capsule-live-graph text {
+  color: #9aabad;
+}
+
+[data-theme="dark"] .capsule-score-strip strong,
+[data-theme="dark"] .duel-card strong,
+[data-theme="dark"] .capsule-message strong {
+  color: #f2f6f6;
+}
+
 @media (max-width: 1000px) {
   .clan-layout {
     grid-template-columns: 1fr;
@@ -639,12 +1401,41 @@
 
   .capsule-form-grid,
   .capsule-grid,
-  .clan-card-grid {
+  .clan-card-grid,
+  .capsule-score-strip,
+  .capsule-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .capsule-detail-header {
+    grid-template-columns: 1fr;
+  }
+
+  .capsule-live-code {
+    text-align: left;
+  }
+
+  .duel-arena-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .duel-versus {
+    justify-self: center;
   }
 
   .duration-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .duration-scroll {
+    grid-template-columns: minmax(128px, 180px) minmax(0, 1fr);
+  }
+
+  .duration-summary {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    justify-self: center;
+    grid-template-columns: 1fr;
   }
 
   .custom-duration {
@@ -656,9 +1447,37 @@
   .duration-heading,
   .capsule-section-heading,
   .capsule-card-top,
-  .capsule-meta {
+  .capsule-meta,
+  .capsule-room-result,
+  .capsule-room-search,
+  .capsule-message-composer {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .capsule-room-search,
+  .capsule-message-composer {
+    grid-template-columns: 1fr;
+  }
+
+  .duration-scroll {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .duration-summary {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: center;
+    width: min(100%, 280px);
+    grid-template-columns: 1fr;
+  }
+
+  .duration-summary > strong {
+    justify-self: center;
+    min-width: 112px;
+    min-height: 112px;
+    font-size: 20px;
   }
 
   .clan-ranking-list > div {
@@ -668,4 +1487,921 @@
   .clan-ranking-list > div > b {
     grid-column: 2;
   }
+}
+
+.capsule-create-panel::before,
+.capsule-room-panel::before,
+.clan-page .capsule-list-section::before,
+.capsule-card::before,
+.capsule-room-result::before {
+  display: none !important;
+  content: none !important;
+}
+
+.capsule-create-panel,
+.capsule-room-panel,
+.clan-page .capsule-list-section {
+  border-color: rgba(232, 235, 239, 0.18) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    #0d1117 !important;
+  color: #f6f7f9 !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.36) !important;
+}
+
+.capsule-create-panel .capsule-form-grid label,
+.capsule-create-panel .duration-heading > span,
+.capsule-create-panel .friend-invite-search,
+.capsule-room-panel .capsule-section-heading h2,
+.clan-page .capsule-list-section .capsule-section-heading h2,
+.capsule-card h3,
+.capsule-room-result h3 {
+  color: #f6f7f9 !important;
+}
+
+.capsule-create-panel .duration-heading small,
+.capsule-create-panel .friend-invite-list small,
+.capsule-room-panel .capsule-room-result p,
+.clan-page .capsule-list-section .capsule-section-heading > strong,
+.capsule-card > p,
+.capsule-card-top,
+.capsule-meta,
+.capsule-room-code,
+.capsule-empty {
+  color: #aeb7c2 !important;
+}
+
+.capsule-create-panel .capsule-form-grid input,
+.capsule-create-panel .friend-invite-search input,
+.capsule-room-panel .capsule-room-search input {
+  border-color: rgba(232, 235, 239, 0.42) !important;
+  background: rgba(3, 4, 5, 0.82) !important;
+  color: #f6f7f9 !important;
+  box-shadow: none !important;
+}
+
+.capsule-create-panel .capsule-form-grid input::placeholder,
+.capsule-create-panel .friend-invite-search input::placeholder,
+.capsule-room-panel .capsule-room-search input::placeholder {
+  color: rgba(246, 247, 249, 0.64) !important;
+  opacity: 1 !important;
+}
+
+.capsule-create-panel .duration-scroll,
+.capsule-create-panel .duration-wheel,
+.capsule-create-panel .duration-scroll > strong,
+.capsule-create-panel .duration-summary > strong,
+.capsule-create-panel .duration-scroll > button,
+.capsule-create-panel .capsule-visibility-options button,
+.capsule-create-panel .friend-invite-list label,
+.capsule-room-result,
+.capsule-card,
+.capsule-meta span,
+.capsule-room-code,
+.capsule-empty {
+  border-color: rgba(232, 235, 239, 0.18) !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: #f6f7f9 !important;
+  box-shadow: none !important;
+}
+
+.capsule-create-panel .duration-wheel {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(244, 201, 93, 0.14), transparent 48%),
+    linear-gradient(180deg, #090c10, #151a22 44%, #151a22 56%, #090c10) !important;
+}
+
+.capsule-create-panel .duration-wheel button {
+  background: transparent !important;
+  color: rgba(232, 235, 239, 0.54) !important;
+}
+
+.capsule-create-panel .duration-wheel button.active,
+.capsule-create-panel .capsule-visibility-options button.active,
+.capsule-create-panel .friend-invite-list label.selected {
+  border-color: rgba(244, 201, 93, 0.72) !important;
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.22), rgba(255, 255, 255, 0.08)) !important;
+  color: #ffe9a3 !important;
+  box-shadow: 0 0 24px rgba(244, 201, 93, 0.16) !important;
+}
+
+.capsule-create-panel .duration-scroll > strong,
+.capsule-create-panel .duration-summary > strong {
+  color: #f4c95d !important;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.11) 0 54%, rgba(255, 255, 255, 0.045) 55% 100%) !important;
+}
+
+.capsule-create-panel .capsule-visibility-options button span,
+.capsule-card .capsule-mode,
+.capsule-room-result span {
+  color: #e8ebef !important;
+}
+
+.capsule-card .capsule-mode,
+.capsule-meta span {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.capsule-room-code strong,
+.capsule-card-top > strong {
+  color: #f4c95d !important;
+}
+
+/* Final clan-page cleanup: spacing, readable cards, and no white banner bleed. */
+.clan-page {
+  --clan-panel-bg: #0d1117;
+  --clan-panel-bg-soft: rgba(255, 255, 255, 0.055);
+  --clan-panel-bg-softer: rgba(255, 255, 255, 0.035);
+  --clan-text: #f6f7f9;
+  --clan-muted: #aeb7c2;
+  --clan-line: rgba(232, 235, 239, 0.18);
+  --clan-line-strong: rgba(232, 235, 239, 0.34);
+  color: var(--clan-text) !important;
+}
+
+.clan-page section::before,
+.clan-page aside::before,
+.clan-page article::before,
+.clan-page .clan-form-panel::before,
+.clan-page .capsule-create-panel::before,
+.clan-page .capsule-room-panel::before,
+.clan-page .capsule-list-section::before,
+.clan-page .capsule-card::before,
+.clan-page .side-clan-card::before,
+.clan-page .aura-placeholder::before {
+  display: none !important;
+  content: none !important;
+}
+
+.clan-page .clan-page-header {
+  margin-bottom: 24px;
+  border: 1px solid var(--clan-line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--clan-panel-bg);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.3);
+}
+
+.clan-page .clan-layout {
+  gap: 24px;
+}
+
+.clan-page .clan-main {
+  display: grid;
+  gap: 20px;
+}
+
+.clan-page .clan-rail {
+  gap: 16px;
+}
+
+.clan-page .my-clan-summary,
+.clan-page .clan-navigation,
+.clan-page .capsule-focus-note,
+.clan-page .capsule-hero,
+.clan-page .capsule-create-panel,
+.clan-page .capsule-room-panel,
+.clan-page .capsule-list-section,
+.clan-page .clan-form-panel,
+.clan-page .clan-duel-panel,
+.clan-page .aura-placeholder,
+.clan-page .clan-ranking-list,
+.clan-page .side-clan-card,
+.clan-page .capsule-card,
+.clan-page .capsule-room-result,
+.clan-page .capsule-empty {
+  border-color: var(--clan-line) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--clan-panel-bg) !important;
+  color: var(--clan-text) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28) !important;
+}
+
+.clan-page .capsule-create-panel,
+.clan-page .capsule-room-panel,
+.clan-page .capsule-list-section,
+.clan-page .clan-form-panel,
+.clan-page .clan-duel-panel,
+.clan-page .aura-placeholder {
+  padding: clamp(18px, 2vw, 24px) !important;
+}
+
+.clan-page .capsule-section-heading,
+.clan-page .duration-heading,
+.clan-page .capsule-card-top,
+.clan-page .capsule-room-result {
+  gap: 14px;
+}
+
+.clan-page h1,
+.clan-page h2,
+.clan-page h3,
+.clan-page strong,
+.clan-page label,
+.clan-page .duration-heading > span,
+.clan-page .capsule-section-heading h2,
+.clan-page .clan-form-panel h2,
+.clan-page .aura-placeholder h2,
+.clan-page .my-clan-summary strong,
+.clan-page .clan-ranking-list span {
+  color: var(--clan-text) !important;
+}
+
+.clan-page p,
+.clan-page small,
+.clan-page .clan-page-header p,
+.clan-page .my-clan-summary > span,
+.clan-page .my-clan-summary small,
+.clan-page .duration-heading small,
+.clan-page .capsule-card > p,
+.clan-page .side-clan-card p,
+.clan-page .clan-duel-panel p,
+.clan-page .aura-placeholder p,
+.clan-page .capsule-room-result p,
+.clan-page .clan-ranking-list small,
+.clan-page .capsule-meta,
+.clan-page .capsule-room-code {
+  color: var(--clan-muted) !important;
+}
+
+.clan-page input,
+.clan-page textarea,
+.clan-page select,
+.clan-page .capsule-form-grid input,
+.clan-page .custom-duration input,
+.clan-page .clan-form-panel input,
+.clan-page .friend-invite-search input,
+.clan-page .capsule-room-search input,
+.clan-page .capsule-message-composer input {
+  border-color: var(--clan-line-strong) !important;
+  background: rgba(3, 4, 5, 0.82) !important;
+  color: var(--clan-text) !important;
+  box-shadow: none !important;
+}
+
+.clan-page input::placeholder,
+.clan-page textarea::placeholder,
+.clan-page .friend-invite-search input::placeholder,
+.clan-page .capsule-room-search input::placeholder {
+  color: rgba(246, 247, 249, 0.62) !important;
+  opacity: 1 !important;
+}
+
+.clan-page .duration-scroll,
+.clan-page .duration-wheel,
+.clan-page .duration-scroll > strong,
+.clan-page .duration-summary > strong,
+.clan-page .duration-scroll > button,
+.clan-page .capsule-visibility-options button,
+.clan-page .friend-invite-list label,
+.clan-page .capsule-meta span,
+.clan-page .capsule-room-code,
+.clan-page .duel-card,
+.clan-page .duel-friend-list button,
+.clan-page .capsule-message,
+.clan-page .clan-ranking-list > div,
+.clan-page .clan-navigation button {
+  border-color: var(--clan-line) !important;
+  background: var(--clan-panel-bg-soft) !important;
+  color: var(--clan-text) !important;
+  box-shadow: none !important;
+}
+
+.clan-page .capsule-visibility-options button.active,
+.clan-page .friend-invite-list label.selected,
+.clan-page .duration-wheel button.active,
+.clan-page .duel-friend-list button.active,
+.clan-page .clan-navigation button.active {
+  border-color: rgba(244, 201, 93, 0.72) !important;
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.22), rgba(255, 255, 255, 0.08)) !important;
+  color: #ffe9a3 !important;
+}
+
+.clan-page .duration-scroll,
+.clan-page .duration-wheel {
+  background: #030405 !important;
+}
+
+.clan-page .duration-wheel,
+.clan-page .duration-scroll > button,
+.clan-page .duration-summary > strong,
+.clan-page .duration-wheel button,
+.clan-page .duration-wheel button.active {
+  border-color: rgba(255, 255, 255, 0) !important;
+  box-shadow: none !important;
+}
+
+.clan-page .duration-scroll > button,
+.clan-page .duration-summary > strong {
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+
+.clan-page .duration-wheel {
+  overscroll-behavior: contain;
+  touch-action: none;
+  cursor: ns-resize;
+}
+
+.clan-page .duration-wheel:focus,
+.clan-page .duration-wheel:focus-visible {
+  outline: 2px solid rgba(244, 201, 93, 0.72);
+  outline-offset: 3px;
+}
+
+.clan-page .duration-wheel::before,
+.clan-page .duration-wheel::after {
+  display: none !important;
+  content: none !important;
+}
+
+.clan-page .clan-navigation button {
+  border-bottom: 1px solid var(--clan-line) !important;
+}
+
+.clan-page .capsule-section-heading > strong,
+.clan-page .capsule-mode,
+.clan-page .clan-navigation .aura-button small {
+  border-color: var(--clan-line-strong) !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+  color: #e8ebef !important;
+}
+
+.clan-page .clan-eyebrow,
+.clan-page .side-clan-card > div span,
+.clan-page .capsule-room-result span {
+  color: #8fe7da !important;
+}
+
+.clan-page .capsule-create-button,
+.clan-page .capsule-primary,
+.clan-page .side-clan-card button,
+.clan-page .clan-form-panel button,
+.clan-page .capsule-room-search button,
+.clan-page .capsule-secondary,
+.clan-page .clan-back-button {
+  border-color: rgba(244, 201, 93, 0.74) !important;
+  background:
+    linear-gradient(135deg, #f7f7f2, #c8ced7) !important;
+  color: #090b0f !important;
+}
+
+.clan-page .capsule-room-code strong,
+.clan-page .capsule-card-top > strong,
+.clan-page .side-clan-card > strong,
+.clan-page .clan-ranking-list > div > strong {
+  color: #f4c95d !important;
+}
+
+.clan-page .clan-list-panel,
+.clan-page .clan-ranking-panel {
+  display: grid;
+  gap: 18px;
+  border-color: var(--clan-line) !important;
+  border-radius: 10px !important;
+  padding: clamp(18px, 2vw, 24px) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--clan-panel-bg) !important;
+  color: var(--clan-text) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28) !important;
+}
+
+.clan-page .clan-list-panel .capsule-section-heading,
+.clan-page .clan-ranking-panel .capsule-section-heading {
+  margin-bottom: 2px;
+}
+
+.clan-page .clan-card-grid {
+  gap: 18px;
+}
+
+.clan-page .side-clan-card {
+  align-content: start;
+  gap: 12px;
+  min-height: 220px;
+  padding: 20px !important;
+}
+
+.clan-page .side-clan-card h3 {
+  margin: 4px 0 0;
+}
+
+.clan-page .side-clan-card p {
+  min-height: 0;
+}
+
+.clan-page .clan-ranking-list {
+  display: grid;
+  gap: 10px;
+  overflow: visible;
+  border: 0 !important;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.clan-page .clan-ranking-list > div {
+  min-height: 72px;
+  margin: 0;
+  border: 1px solid var(--clan-line) !important;
+  border-radius: 8px;
+  padding: 16px 18px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+    rgba(255, 255, 255, 0.055) !important;
+}
+
+.clan-page .capsule-create-button,
+.clan-page .capsule-primary,
+.clan-page .capsule-secondary,
+.clan-page .side-clan-card button,
+.clan-page .clan-form-panel button,
+.clan-page .duel-start-button,
+.clan-page .capsule-room-search button,
+.clan-page .capsule-room-result button {
+  min-height: 42px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(232, 235, 239, 0.86) !important;
+  border-radius: 6px !important;
+  padding: 0 16px;
+  background:
+    linear-gradient(135deg, #f8f8f4, #c8ced7 42%, #75808b) !important;
+  color: #07090d !important;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 14px 38px rgba(255, 255, 255, 0.12) !important;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.clan-page .capsule-create-button::before,
+.clan-page .capsule-primary::before,
+.clan-page .capsule-secondary::before,
+.clan-page .side-clan-card button::before,
+.clan-page .clan-form-panel button::before,
+.clan-page .duel-start-button::before,
+.clan-page .capsule-room-search button::before,
+.clan-page .capsule-room-result button::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background:
+    linear-gradient(
+      105deg,
+      transparent 0 35%,
+      rgba(255, 255, 255, 0.78) 48%,
+      transparent 60% 100%
+    );
+  transform: translateX(-120%);
+  transition: transform 460ms ease;
+}
+
+.clan-page .capsule-create-button:hover::before,
+.clan-page .capsule-primary:hover::before,
+.clan-page .capsule-secondary:hover::before,
+.clan-page .side-clan-card button:hover::before,
+.clan-page .clan-form-panel button:hover::before,
+.clan-page .duel-start-button:hover::before,
+.clan-page .capsule-room-search button:hover::before,
+.clan-page .capsule-room-result button:hover::before {
+  transform: translateX(115%);
+}
+
+.clan-page .capsule-create-button:hover,
+.clan-page .capsule-primary:hover,
+.clan-page .capsule-secondary:hover,
+.clan-page .side-clan-card button:hover,
+.clan-page .clan-form-panel button:hover,
+.clan-page .duel-start-button:hover,
+.clan-page .capsule-room-search button:hover,
+.clan-page .capsule-room-result button:hover {
+  border-color: rgba(255, 233, 163, 0.92) !important;
+  background:
+    linear-gradient(135deg, #ffe9a3, #f4c95d 44%, #9f7620) !important;
+  color: #07090d !important;
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(255, 233, 163, 0.34),
+    0 22px 58px rgba(244, 201, 93, 0.2),
+    0 0 26px rgba(244, 201, 93, 0.28) !important;
+}
+
+.clan-page .side-clan-card button:disabled {
+  cursor: default;
+  opacity: 1;
+  border-color: rgba(244, 201, 93, 0.58) !important;
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.22), rgba(255, 255, 255, 0.12)) !important;
+  color: #ffe9a3 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.clan-page .side-clan-card button:disabled::before {
+  display: none;
+}
+
+.clan-page .side-clan-card button:disabled:hover {
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.clan-page .clan-search-field {
+  display: grid;
+  gap: 8px;
+}
+
+.clan-page .clan-search-field span {
+  color: var(--clan-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clan-page .clan-search-field input {
+  min-height: 48px;
+  border-radius: 7px;
+  padding: 0 14px;
+}
+
+.clan-page .clan-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: auto;
+}
+
+.clan-page .clan-ranking-list > div {
+  grid-template-columns: 58px minmax(0, 1fr) auto auto;
+}
+
+.clan-page .clan-ranking-list > div > button {
+  min-height: 36px;
+  border: 1px solid rgba(232, 235, 239, 0.72);
+  border-radius: 6px;
+  padding: 0 12px;
+  background:
+    linear-gradient(135deg, #f8f8f4, #c8ced7 42%, #75808b);
+  color: #07090d;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clan-page .clan-detail-panel {
+  display: grid;
+  gap: 20px;
+  border-color: var(--clan-line) !important;
+  border-radius: 10px !important;
+  padding: clamp(18px, 2vw, 24px) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--clan-panel-bg) !important;
+  color: var(--clan-text) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28) !important;
+}
+
+.clan-page .clan-detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.clan-page .clan-detail-heading h2,
+.clan-page .clan-detail-heading p {
+  margin: 0;
+}
+
+.clan-page .clan-detail-heading h2 {
+  margin-top: 5px;
+}
+
+.clan-page .clan-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.clan-page .clan-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.clan-page .clan-detail-stats article {
+  border: 1px solid var(--clan-line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--clan-panel-bg-soft);
+}
+
+.clan-page .clan-detail-stats span,
+.clan-page .clan-member-row small,
+.clan-page .clan-member-lock {
+  color: var(--clan-muted) !important;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clan-page .clan-detail-stats strong {
+  display: block;
+  margin-top: 8px;
+  color: #f4c95d !important;
+  font-size: 26px;
+}
+
+.clan-page .clan-member-list {
+  display: grid;
+  gap: 12px;
+}
+
+.clan-page .clan-member-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--clan-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--clan-panel-bg-soft);
+}
+
+.clan-page .clan-member-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--clan-line-strong);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, #f8f8f4, #c8ced7 42%, #75808b);
+  color: #07090d;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clan-page .clan-member-row > span {
+  color: #f4c95d;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.clan-page .clan-danger-button {
+  min-height: 40px;
+  border: 1px solid rgba(255, 115, 102, 0.75);
+  border-radius: 6px;
+  padding: 0 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 115, 102, 0.2), rgba(255, 255, 255, 0.08));
+  color: #ffd4d0;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clan-page .clan-danger-button:hover {
+  border-color: #ff8a7a;
+  background:
+    linear-gradient(135deg, #ff8a7a, #d44f42);
+  color: #170504;
+}
+
+@media (max-width: 760px) {
+  .clan-page .clan-detail-heading,
+  .clan-page .clan-detail-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .clan-page .clan-detail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clan-page .clan-member-row,
+  .clan-page .clan-ranking-list > div {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .clan-page .clan-member-avatar {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* Final Time Capsule detail cleanup: no white banner surfaces. */
+.capsule-detail-page .capsule-detail-header::before,
+.capsule-detail-page .capsule-detail-header::after,
+.capsule-detail-page .capsule-score-strip::before,
+.capsule-detail-page .capsule-score-strip::after,
+.capsule-detail-page .capsule-score-strip > div::before,
+.capsule-detail-page .capsule-score-strip > div::after,
+.capsule-detail-page .capsule-detail-header > button::before,
+.capsule-detail-page .capsule-detail-header > button::after,
+.capsule-detail-page .capsule-friends-panel::before,
+.capsule-detail-page .capsule-friends-panel::after,
+.capsule-detail-page .capsule-score-panel::before,
+.capsule-detail-page .capsule-score-panel::after,
+.capsule-detail-page .capsule-discussion-panel::before,
+.capsule-detail-page .capsule-discussion-panel::after,
+.capsule-detail-page .capsule-leaderboard-panel::before,
+.capsule-detail-page .capsule-leaderboard-panel::after,
+.capsule-detail-page .capsule-message::before,
+.capsule-detail-page .capsule-message::after,
+.capsule-detail-page .capsule-message-composer button::before,
+.capsule-detail-page .capsule-message-composer button::after {
+  display: none !important;
+  content: none !important;
+}
+
+.capsule-detail-page .capsule-detail-header,
+.capsule-detail-page .capsule-score-strip > div,
+.capsule-detail-page .capsule-friends-panel,
+.capsule-detail-page .capsule-score-panel,
+.capsule-detail-page .capsule-discussion-panel,
+.capsule-detail-page .capsule-live-graph,
+.capsule-detail-page .capsule-leaderboard-panel,
+.capsule-detail-page .capsule-message-list,
+.capsule-detail-page .capsule-message,
+.capsule-detail-page .capsule-message-composer input,
+.capsule-detail-page .capsule-detail-header > button,
+.capsule-detail-page .capsule-message-composer button {
+  border-color: rgba(232, 235, 239, 0.18) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    #0d1117 !important;
+  color: #f6f7f9 !important;
+  box-shadow: none !important;
+}
+
+.capsule-detail-page .capsule-detail-header,
+.capsule-detail-page .capsule-friends-panel,
+.capsule-detail-page .capsule-score-panel,
+.capsule-detail-page .capsule-discussion-panel {
+  padding: clamp(18px, 2vw, 24px) !important;
+}
+
+.capsule-detail-page .capsule-score-strip > div {
+  padding: 16px !important;
+}
+
+.capsule-detail-page .capsule-detail-header p,
+.capsule-detail-page .capsule-score-strip span,
+.capsule-detail-page .capsule-friend-stack small,
+.capsule-detail-page .capsule-leaderboard-panel small,
+.capsule-detail-page .capsule-message p,
+.capsule-detail-page .capsule-message small,
+.capsule-detail-page .capsule-message-list > p,
+.capsule-detail-page .capsule-live-graph text,
+.capsule-detail-page .capsule-graph-legend span {
+  color: #aeb7c2 !important;
+}
+
+.capsule-detail-page .capsule-detail-header h1,
+.capsule-detail-page .capsule-score-strip strong,
+.capsule-detail-page .capsule-friends-panel h2,
+.capsule-detail-page .capsule-score-panel h2,
+.capsule-detail-page .capsule-discussion-panel h2,
+.capsule-detail-page .capsule-friend-stack strong,
+.capsule-detail-page .capsule-leaderboard-panel b,
+.capsule-detail-page .capsule-message strong {
+  color: #f6f7f9 !important;
+}
+
+.capsule-detail-page .capsule-score-strip strong,
+.capsule-detail-page .capsule-leaderboard-panel > button > strong,
+.capsule-detail-page .capsule-leaderboard-panel > button > b,
+.capsule-detail-page .capsule-live-code strong {
+  color: #f4c95d !important;
+}
+
+.capsule-detail-page .capsule-live-code,
+.capsule-detail-page .capsule-graph-legend span {
+  border-color: rgba(232, 235, 239, 0.2) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: #e8ebef !important;
+}
+
+.capsule-detail-page .capsule-live-graph line {
+  stroke: rgba(232, 235, 239, 0.14) !important;
+}
+
+.capsule-detail-page .capsule-friend-stack > button {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f6f7f9;
+  text-align: left;
+  box-shadow: none;
+}
+
+.capsule-detail-page .capsule-friend-stack > button:hover,
+.capsule-detail-page .capsule-leaderboard-panel > button:hover {
+  border-color: rgba(244, 201, 93, 0.62) !important;
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.12), rgba(255, 255, 255, 0.055)),
+    #10141b !important;
+  transform: none;
+}
+
+.capsule-detail-page .capsule-friend-stack > button > span {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, #f8f8f4, #c8ced7 42%, #75808b);
+  color: #07090d;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-detail-page .capsule-friend-stack img {
+  width: 40px;
+  height: 40px;
+}
+
+.capsule-detail-page .capsule-leaderboard-panel {
+  gap: 10px !important;
+  margin-top: 18px !important;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 10px;
+  padding: 14px !important;
+}
+
+.capsule-detail-page .capsule-leaderboard-panel > button {
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: 14px !important;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f6f7f9;
+  text-align: left;
+}
+
+.capsule-detail-page .capsule-leaderboard-panel > button span {
+  min-width: 0;
+}
+
+.capsule-detail-page .capsule-message-list {
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 9px;
+  padding: 12px;
+  padding-right: 12px;
+}
+
+.capsule-detail-page .capsule-message {
+  border-color: rgba(232, 235, 239, 0.24) !important;
+  padding: 10px 12px !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.capsule-detail-page .capsule-message.mine {
+  border-color: rgba(244, 201, 93, 0.54) !important;
+  background: rgba(244, 201, 93, 0.1) !important;
+}
+
+.capsule-detail-page .capsule-message-composer {
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 9px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.capsule-detail-page .capsule-message-composer input {
+  border-radius: 7px;
+}
+
+.capsule-detail-page .capsule-detail-header > button,
+.capsule-detail-page .capsule-message-composer button {
+  border-color: rgba(244, 201, 93, 0.62) !important;
+  color: #ffe9a3 !important;
+  font-weight: 900;
 }

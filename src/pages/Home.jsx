@@ -2,45 +2,33 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
-  Bell,
   BookOpen,
-  CheckCircle2,
+  Check,
   Code2,
   Flame,
   Gamepad2,
-  Home as HomeIcon,
-  Hourglass,
-  LogOut,
   Menu,
-  MessageCircle,
-  PenSquare,
+  ScrollText,
   Search,
-  Settings,
-  Shield,
   Sparkles,
   Swords,
+  Target,
   Trophy,
   UsersRound,
-  X,
 } from "lucide-react";
+import AppSidebar from "../components/AppSidebar";
 import { supabase } from "../supabase";
-import { loadProblems } from "../features/problems/problemApi";
+import {
+  loadProblems,
+  loadUserProblemStats,
+} from "../features/problems/problemApi";
 import "../styles/Home.css";
-
-const mainNavigation = [
-  { label: "Home", path: "/home", icon: HomeIcon, active: true },
-  { label: "Clans", path: "/clans", icon: Shield },
-  { label: "Time Capsules", path: "/time-capsules", icon: Hourglass },
-  { label: "Chat", path: "/chat", icon: MessageCircle },
-  { label: "Rabbit Hole", path: "/rabbit-hole", icon: BookOpen },
-  { label: "Power Up Hunt", path: "/power-up-hunt", icon: Gamepad2 },
-];
 
 const quickActions = [
   {
     label: "Solve a problem",
     detail: "Practice with Typhon",
-    target: "problems",
+    path: "/practice-arena",
     icon: Code2,
     tone: "coral",
   },
@@ -67,16 +55,46 @@ const quickActions = [
   },
 ];
 
-const difficultyFilters = ["All", "Easy", "Medium", "Hard"];
+const difficultyFilters = ["All", "Easy", "Medium", "Hard", "Extreme"];
+
+const formatRank = (rank) => {
+  const rankValue = Number(rank);
+  if (!Number.isFinite(rankValue) || rankValue <= 0) return "Unranked";
+  return `#${rankValue}`;
+};
+
+const getCountryValue = (user = {}) =>
+  String(
+    user.country ||
+      user.country_code ||
+      user.countryCode ||
+      user.location_country ||
+      user.nationality ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+const buildRank = (users, currentUserId) => {
+  const sortedUsers = [...users].sort((first, second) => {
+    const xpDifference = Number(second.xp || 0) - Number(first.xp || 0);
+    if (xpDifference !== 0) return xpDifference;
+    return String(first.id).localeCompare(String(second.id));
+  });
+
+  const index = sortedUsers.findIndex(
+    (user) => String(user.id) === String(currentUserId)
+  );
+
+  return index === -1 ? "Unranked" : formatRank(index + 1);
+};
 
 export default function Home() {
   const navigate = useNavigate();
   const [currentUser] = useState(
     () => JSON.parse(localStorage.getItem("loggedInUser")) || {}
   );
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => window.innerWidth >= 980
-  );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [problemSearch, setProblemSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("All");
@@ -84,84 +102,46 @@ export default function Home() {
   const [problemLoadError, setProblemLoadError] = useState("");
   const [problemsLoading, setProblemsLoading] = useState(true);
   const [users, setUsers] = useState([]);
-  const [message, setMessage] = useState("");
+  const [dashboardStats, setDashboardStats] = useState({
+    streakDays: 0,
+    globalRank: "Unranked",
+    localRank: "No country",
+  });
   const debounceTimer = useRef(null);
-
-  const goTo = (path) => {
-    navigate(path);
-    if (window.innerWidth < 980) {
-      setSidebarOpen(false);
-    }
-  };
-
-  const logout = () => {
-    const savedTheme = localStorage.getItem("codeArenaTheme");
-    localStorage.clear();
-    if (savedTheme) {
-      localStorage.setItem("codeArenaTheme", savedTheme);
-    }
-    navigate("/login");
-  };
 
   const searchUsers = async (value) => {
     setSearch(value);
 
-    if (!value.trim()) {
+    const query = value.trim();
+
+    if (!query) {
       setUsers([]);
       return;
     }
 
     clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from("lusers")
-        .select("*")
-        .ilike("username", `%${value}%`)
-        .neq("id", currentUser.id);
+      const [emailResult, nameResult] = await Promise.all([
+        supabase
+          .from("lusers")
+          .select("*")
+          .ilike("username", `%${query}%`)
+          .neq("id", currentUser.id),
+        supabase
+          .from("lusers")
+          .select("*")
+          .ilike("uusername", `%${query}%`)
+          .neq("id", currentUser.id),
+      ]);
 
-      let results = data || [];
+      const resultsById = new Map();
+      [...(emailResult.data || []), ...(nameResult.data || [])].forEach(
+        (user) => {
+          resultsById.set(String(user.id), user);
+        }
+      );
 
-      if (results.length > 0) {
-        const [
-          { data: friendRelations },
-          { data: followRelations },
-        ] = await Promise.all([
-          supabase.from("friends").select("*"),
-          supabase
-            .from("user_follows")
-            .select("following_id")
-            .eq("follower_id", String(currentUser.id)),
-        ]);
-        const currentUserId = String(currentUser.id);
-        const friendIds = new Set(
-          (friendRelations || [])
-            .filter(
-              (relation) =>
-                String(relation.user1_id) === currentUserId ||
-                String(relation.user2_id) === currentUserId
-            )
-            .map((relation) =>
-              String(
-                String(relation.user1_id) === currentUserId
-                  ? relation.user2_id
-                  : relation.user1_id
-              )
-            )
-        );
-        const followingIds = new Set(
-          (followRelations || []).map((relation) =>
-            String(relation.following_id)
-          )
-        );
-
-        results = results.map((user) => ({
-          ...user,
-          isFriend: friendIds.has(String(user.id)),
-          isFollowing: followingIds.has(String(user.id)),
-        }));
-      }
-
-      setUsers(results);
+      setUsers([...resultsById.values()]);
     }, 500);
   };
 
@@ -191,70 +171,55 @@ export default function Home() {
     };
   }, [currentUser.id]);
 
-  const sendFriendRequest = async (receiverId) => {
-    setMessage("");
+  useEffect(() => {
+    let active = true;
+    const currentUserId = String(currentUser.id || "");
 
-    const { data: existing } = await supabase
-      .from("friend_requests")
-      .select("*")
-      .eq("sender_id", currentUser.id)
-      .eq("receiver_id", receiverId)
-      .in("status", ["pending", "accepted"]);
-
-    if (existing?.length > 0) {
-      setMessage("Request already sent");
-      return;
-    }
-
-    const { error } = await supabase.from("friend_requests").insert([
-      {
-        sender_id: currentUser.id,
-        receiver_id: receiverId,
-        status: "pending",
-      },
-    ]);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setMessage("Friend request sent");
-  };
-
-  const toggleFollow = async (user) => {
-    setMessage("");
-    const relation = {
-      follower_id: String(currentUser.id),
-      following_id: String(user.id),
+    if (!currentUserId) return () => {
+      active = false;
     };
 
-    const { error } = user.isFollowing
-      ? await supabase
-          .from("user_follows")
-          .delete()
-          .eq("follower_id", relation.follower_id)
-          .eq("following_id", relation.following_id)
-      : await supabase.from("user_follows").insert([relation]);
+    const loadDashboardStats = async () => {
+      const [userResult, problemStats] = await Promise.all([
+        supabase.from("lusers").select("*"),
+        loadUserProblemStats(currentUserId).catch(() => ({
+          streakDays: 0,
+          activity: [],
+          activeDays: 0,
+          lastSolvedAt: null,
+        })),
+      ]);
 
-    if (error) {
-      setMessage(
-        error.code === "PGRST205" || error.code === "42P01"
-          ? "Run backend/social-schema.sql in Supabase to enable following."
-          : error.message
-      );
-      return;
-    }
+      if (!active) return;
 
-    setUsers((currentUsers) =>
-      currentUsers.map((currentResult) =>
-        String(currentResult.id) === String(user.id)
-          ? { ...currentResult, isFollowing: !user.isFollowing }
-          : currentResult
-      )
-    );
-    setMessage(user.isFollowing ? "Unfollowed player" : "Following player");
-  };
+      const allUsers = userResult.data || [];
+      const currentProfile =
+        allUsers.find((user) => String(user.id) === currentUserId) ||
+        currentUser;
+      const country = getCountryValue(currentProfile);
+      const countryUsers = country
+        ? allUsers.filter((user) => getCountryValue(user) === country)
+        : [];
+
+      setDashboardStats({
+        streakDays: Number(problemStats.streakDays || 0),
+        globalRank: userResult.error
+          ? formatRank(currentProfile.global_rank || currentProfile.globalRank)
+          : buildRank(allUsers, currentUserId),
+        localRank: !country
+          ? "No country"
+          : userResult.error
+          ? formatRank(currentProfile.local_rank || currentProfile.localRank)
+          : buildRank(countryUsers, currentUserId),
+      });
+    };
+
+    loadDashboardStats();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
 
   const filteredProblems = problems.filter((problem) => {
     const query = problemSearch.trim().toLowerCase();
@@ -269,8 +234,9 @@ export default function Home() {
     );
   });
 
-  const level = Math.floor(Number(currentUser.xp || 0) / 100) + 1;
-  const levelProgress = Number(currentUser.xp || 0) % 100;
+  const playerXp = Number(currentUser.xp || 0);
+  const level = Math.floor(playerXp / 100) + 1;
+  const levelProgress = playerXp % 100;
 
   const handleQuickAction = (action) => {
     if (action.path) {
@@ -293,85 +259,14 @@ export default function Home() {
         onClick={() => setSidebarOpen(false)}
       />
 
-      <aside className="home-sidebar">
-        <div className="home-sidebar-brand">
-          <span>CA</span>
-          <strong>CodeArena</strong>
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <button
-          className="home-player-summary"
-          type="button"
-          aria-label="Open profile"
-          onClick={() => goTo("/profile")}
-        >
-          {currentUser.profile_pic ? (
-            <img src={currentUser.profile_pic} alt="" />
-          ) : (
-            <span>
-              {(currentUser.uusername || currentUser.username || "P")[0]}
-            </span>
-          )}
-          <div>
-            <strong>{currentUser.uusername || currentUser.username}</strong>
-            <small>{currentUser.xp || 0} XP</small>
-          </div>
-        </button>
-
-        <nav className="home-primary-nav" aria-label="Main navigation">
-          <span className="home-nav-label">Arena</span>
-          {mainNavigation.map(({ label, path, icon: Icon, active }) => (
-            <button
-              className={active ? "active-home-nav" : ""}
-              type="button"
-              key={path}
-              onClick={() => goTo(path)}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </button>
-          ))}
-          <button type="button" onClick={() => goTo("/profile#posts")}>
-            <PenSquare size={18} />
-            <span>Post</span>
-          </button>
-        </nav>
-
-        <nav className="home-account-nav" aria-label="Account navigation">
-          <span className="home-nav-label">Account</span>
-          <button type="button" onClick={() => goTo("/notifications")}>
-            <Bell size={18} />
-            <span>Notifications</span>
-          </button>
-          <button
-            className="settings-nav"
-            type="button"
-            title="Settings is coming soon"
-            disabled
-          >
-            <Settings size={18} />
-            <span>Settings</span>
-          </button>
-          <button className="logout-nav" type="button" onClick={logout}>
-            <LogOut size={18} />
-            <span>Logout</span>
-          </button>
-        </nav>
-      </aside>
+      <AppSidebar onClose={() => setSidebarOpen(false)} />
 
       <div className="home-content">
         <header className="home-topbar">
           <button
             className="home-menu-button"
             type="button"
-            aria-label="Open navigation"
+            aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen((open) => !open)}
           >
@@ -381,14 +276,16 @@ export default function Home() {
             <span>Player dashboard</span>
             <h1>Welcome {currentUser.uusername || currentUser.username}</h1>
           </div>
-          <button
-            className="power-hunt-shortcut"
-            type="button"
-            onClick={() => navigate("/power-up-hunt")}
-          >
-            <Gamepad2 size={18} />
-            Power Up Hunt
-          </button>
+          <div className="app-shell-nav-actions">
+            <button
+              className="power-hunt-shortcut"
+              type="button"
+              onClick={() => navigate("/power-up-hunt")}
+            >
+              <Gamepad2 size={18} />
+              Power Up Hunt
+            </button>
+          </div>
         </header>
 
         <main className="home-main">
@@ -414,18 +311,18 @@ export default function Home() {
             <div className="home-command-stats">
               <article>
                 <Flame size={18} />
-                <span>Daily focus</span>
-                <strong>1 problem</strong>
+                <span>Streak</span>
+                <strong>{dashboardStats.streakDays} days</strong>
               </article>
               <article>
                 <Trophy size={18} />
-                <span>Current XP</span>
-                <strong>{currentUser.xp || 0}</strong>
+                <span>Global ranking</span>
+                <strong>{dashboardStats.globalRank}</strong>
               </article>
               <article>
-                <BookOpen size={18} />
-                <span>Learning trails</span>
-                <strong>4 paths</strong>
+                <Target size={18} />
+                <span>Local ranking</span>
+                <strong>{dashboardStats.localRank}</strong>
               </article>
             </div>
           </section>
@@ -525,14 +422,15 @@ export default function Home() {
                       <div>
                         <strong>{problem.title}</strong>
                         <span>
-                          Acceptance {problem.acceptance} · {problem.xp_reward} XP
+                          Acceptance {problem.acceptance} ·{" "}
+                          <b className="problem-xp">{problem.xp_reward} XP</b>
+                          {problem.solved && (
+                            <span className="problem-solved" title="Solved">
+                              <Check size={15} strokeWidth={3} />
+                            </span>
+                          )}
                         </span>
                       </div>
-                      {problem.solved && (
-                        <span className="problem-solved" title="Solved">
-                          <CheckCircle2 size={15} />
-                        </span>
-                      )}
                       <span
                         className={`difficulty-badge ${problem.difficulty.toLowerCase()}`}
                       >
@@ -566,37 +464,35 @@ export default function Home() {
                   />
                 </label>
 
-                {message && <p className="home-inline-message">{message}</p>}
-
                 <div className="users-grid">
                   {search.trim() &&
                     users.map((user) => (
                       <article key={user.id} className="user-card">
-                        <span className="user-card-avatar">
-                          {(user.uusername || user.username || "P")[0]}
-                        </span>
-                        <div>
-                          <h3>{user.uusername || user.username}</h3>
-                          <p>{user.age ? `Age ${user.age}` : "Arena player"}</p>
-                        </div>
-
-                        <div className="home-user-actions">
-                          {user.isFriend ? (
-                            <button className="disabled" disabled>
-                              Buddy
-                            </button>
+                        <button
+                          className="user-card-profile-link"
+                          type="button"
+                          onClick={() => navigate(`/profile/${user.id}`)}
+                        >
+                          {user.profile_pic ? (
+                            <img
+                              className="user-card-avatar"
+                              src={user.profile_pic}
+                              alt=""
+                            />
                           ) : (
-                            <button onClick={() => sendFriendRequest(user.id)}>
-                              Add
-                            </button>
+                            <span className="user-card-avatar">
+                              {(user.uusername || user.username || "P")[0]}
+                            </span>
                           )}
-                          <button
-                            className={user.isFollowing ? "following" : ""}
-                            onClick={() => toggleFollow(user)}
-                          >
-                            {user.isFollowing ? "Following" : "Follow"}
-                          </button>
-                        </div>
+                          <span>
+                            <h3>{user.uusername || user.username}</h3>
+                            <p>
+                              {user.country || "Arena player"}
+                              {user.age ? ` - Age ${user.age}` : ""}
+                            </p>
+                          </span>
+                        </button>
+
                       </article>
                     ))}
                 </div>
@@ -611,6 +507,19 @@ export default function Home() {
                 <Sparkles size={28} />
                 <button type="button" onClick={() => navigate("/power-up-hunt")}>
                   Start hunt
+                  <ArrowRight size={16} />
+                </button>
+              </section>
+
+              <section className="home-season-panel">
+                <div>
+                  <span className="home-section-label">Season one</span>
+                  <h2>Bhagavad Gita</h2>
+                  <p>Open the first season path, rules, rewards, and challenge focus.</p>
+                </div>
+                <ScrollText size={28} />
+                <button type="button" onClick={() => navigate("/season-one")}>
+                  View details
                   <ArrowRight size={16} />
                 </button>
               </section>

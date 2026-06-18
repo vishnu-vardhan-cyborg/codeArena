@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Check,
   MessageCircle,
+  MoreVertical,
   Plus,
   Search,
   Send,
   UsersRound,
+  X,
 } from "lucide-react";
 import { supabase } from "../supabase";
 import {
@@ -37,7 +37,6 @@ const mergeGroups = (currentGroups, incomingGroups) => {
 };
 
 export default function Chat() {
-  const navigate = useNavigate();
   const currentUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("loggedInUser"));
@@ -58,6 +57,7 @@ export default function Chat() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [conversationSearch, setConversationSearch] = useState("");
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const [socketConnected, setSocketConnected] = useState(socket.connected);
 
   useEffect(() => {
@@ -177,6 +177,7 @@ export default function Chat() {
         setGroupName("");
         setSelectedMemberIds([]);
         setIsCreatingGroup(false);
+        setGroupMenuOpen(false);
       }
     };
 
@@ -321,14 +322,6 @@ export default function Chat() {
   return (
     <div className="chat-page">
       <header className="chat-page-header">
-        <button
-          className="chat-back-button"
-          type="button"
-          onClick={() => navigate("/home")}
-        >
-          <ArrowLeft size={17} />
-          Home
-        </button>
         <div>
           <span>CodeArena messenger</span>
           <h1>Chats</h1>
@@ -352,15 +345,98 @@ export default function Chat() {
             <strong>{conversations.length}</strong>
           </div>
 
-          <label className="chat-search">
-            <Search size={16} />
-            <input
-              type="search"
-              placeholder="Search chats"
-              value={conversationSearch}
-              onChange={(event) => setConversationSearch(event.target.value)}
-            />
-          </label>
+          <div className="chat-search-row">
+            <div className="chat-group-menu">
+              <button
+                type="button"
+                className="chat-group-menu-button"
+                aria-label="Open group chat menu"
+                aria-expanded={groupMenuOpen}
+                onClick={() => setGroupMenuOpen((open) => !open)}
+              >
+                <MoreVertical size={18} />
+              </button>
+
+              {groupMenuOpen && (
+                <section className="group-popover">
+                  <div className="group-panel-heading">
+                    <span className="group-create-icon">
+                      <Plus size={17} />
+                    </span>
+                    <div>
+                      <span>New conversation</span>
+                      <h2>Create group chat</h2>
+                    </div>
+                    <button
+                      type="button"
+                      className="group-popover-close"
+                      aria-label="Close group chat menu"
+                      onClick={() => setGroupMenuOpen(false)}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  <label className="group-name-field">
+                    <span>Group name</span>
+                    <input
+                      value={groupName}
+                      placeholder="e.g. DSA challengers"
+                      onChange={(event) => setGroupName(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="member-picker">
+                    <span>Select members</span>
+                    {friends.length === 0 ? (
+                      <p>Add friends before creating a group.</p>
+                    ) : (
+                      friends.map((friend) => (
+                        <label key={friend.id} className="member-option">
+                          <input
+                            type="checkbox"
+                            checked={selectedMemberIds.includes(String(friend.id))}
+                            onChange={() => toggleMember(friend.id)}
+                          />
+                          <span className="member-check">
+                            <Check size={12} />
+                          </span>
+                          <img
+                            src={friend.profile_pic || DEFAULT_AVATAR}
+                            alt=""
+                          />
+                          <span>{getDisplayName(friend)}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+
+                  <button
+                    className={
+                      isCreatingGroup
+                        ? "create-group-button disabled"
+                        : "create-group-button"
+                    }
+                    disabled={isCreatingGroup}
+                    onClick={handleCreateGroup}
+                  >
+                    <UsersRound size={16} />
+                    {isCreatingGroup ? "Creating..." : "Create group"}
+                  </button>
+                </section>
+              )}
+            </div>
+
+            <label className="chat-search">
+              <Search size={16} />
+              <input
+                type="search"
+                placeholder="Search chats"
+                value={conversationSearch}
+                onChange={(event) => setConversationSearch(event.target.value)}
+              />
+            </label>
+          </div>
 
           <div className="conversation-scroll">
             <div className="conversation-section-heading">
@@ -514,62 +590,6 @@ export default function Chat() {
           )}
         </main>
 
-        <aside className="group-panel">
-          <div className="group-panel-heading">
-            <span className="group-create-icon">
-              <Plus size={17} />
-            </span>
-            <div>
-              <span>New conversation</span>
-              <h2>Create group</h2>
-            </div>
-          </div>
-
-          <label className="group-name-field">
-            <span>Group name</span>
-            <input
-              value={groupName}
-              placeholder="e.g. DSA challengers"
-              onChange={(event) => setGroupName(event.target.value)}
-            />
-          </label>
-
-          <div className="member-picker">
-            <span>Select members</span>
-            {friends.length === 0 ? (
-              <p>Add friends before creating a group.</p>
-            ) : (
-              friends.map((friend) => (
-                <label key={friend.id} className="member-option">
-                  <input
-                    type="checkbox"
-                    checked={selectedMemberIds.includes(String(friend.id))}
-                    onChange={() => toggleMember(friend.id)}
-                  />
-                  <span className="member-check">
-                    <Check size={12} />
-                  </span>
-                  <img
-                    src={friend.profile_pic || DEFAULT_AVATAR}
-                    alt=""
-                  />
-                  <span>{getDisplayName(friend)}</span>
-                </label>
-              ))
-            )}
-          </div>
-
-          <button
-            className={
-              isCreatingGroup ? "create-group-button disabled" : "create-group-button"
-            }
-            disabled={isCreatingGroup}
-            onClick={handleCreateGroup}
-          >
-            <UsersRound size={16} />
-            {isCreatingGroup ? "Creating..." : "Create group"}
-          </button>
-        </aside>
       </div>
     </div>
   );

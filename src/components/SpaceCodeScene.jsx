@@ -8,7 +8,7 @@ const createGlyphTexture = (glyph, accent) => {
   canvas.height = 256;
   const context = canvas.getContext("2d");
 
-  context.fillStyle = "#10272d";
+  context.fillStyle = "#050607";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.strokeStyle = accent;
   context.lineWidth = 10;
@@ -83,13 +83,13 @@ export default function SpaceCodeScene() {
     }
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.7));
-    renderer.setClearColor(0x071116, 1);
+    renderer.setClearColor(0x020303, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x071116, 0.027);
+    scene.fog = new THREE.FogExp2(0x020303, 0.027);
 
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 120);
     camera.position.set(0, 2.2, 18);
@@ -98,24 +98,24 @@ export default function SpaceCodeScene() {
     world.position.set(isMobile ? 5.8 : 5.3, isMobile ? -1.35 : 0.4, 0);
     scene.add(world);
 
-    scene.add(new THREE.HemisphereLight(0x77e7d4, 0x071116, 1.1));
-    const coreLight = new THREE.PointLight(0x61d3c2, 45, 20, 1.6);
+    scene.add(new THREE.HemisphereLight(0xf5f7fa, 0x020303, 1.08));
+    const coreLight = new THREE.PointLight(0xf5f7fa, 42, 20, 1.6);
     coreLight.position.set(0, 0, 0);
     world.add(coreLight);
-    const coralLight = new THREE.PointLight(0xef6655, 30, 18, 1.8);
-    coralLight.position.set(4, 2, 2);
-    world.add(coralLight);
+    const rimLight = new THREE.PointLight(0x9aa2ad, 24, 18, 1.8);
+    rimLight.position.set(4, 2, 2);
+    world.add(rimLight);
 
     const coreGroup = new THREE.Group();
     world.add(coreGroup);
 
     const coreGeometry = new THREE.IcosahedronGeometry(2.05, 2);
     const coreMaterial = new THREE.MeshStandardMaterial({
-      color: 0x112f36,
-      emissive: 0x118b7c,
-      emissiveIntensity: 1.2,
-      metalness: 0.75,
-      roughness: 0.22,
+      color: 0x1a1d24,
+      emissive: 0xbfc5cf,
+      emissiveIntensity: 0.72,
+      metalness: 0.92,
+      roughness: 0.18,
       wireframe: true,
     });
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
@@ -123,18 +123,18 @@ export default function SpaceCodeScene() {
 
     const innerGeometry = new THREE.IcosahedronGeometry(1.18, 1);
     const innerMaterial = new THREE.MeshStandardMaterial({
-      color: 0xef6655,
-      emissive: 0xef6655,
-      emissiveIntensity: 1.9,
-      metalness: 0.4,
-      roughness: 0.28,
+      color: 0xf5f7fa,
+      emissive: 0xd7dce4,
+      emissiveIntensity: 1.35,
+      metalness: 0.82,
+      roughness: 0.2,
     });
     const innerCore = new THREE.Mesh(innerGeometry, innerMaterial);
     coreGroup.add(innerCore);
 
     const haloGeometry = new THREE.TorusGeometry(2.75, 0.035, 8, 128);
     const haloMaterial = new THREE.MeshBasicMaterial({
-      color: 0x61d3c2,
+      color: 0xf5f7fa,
       transparent: true,
       opacity: 0.65,
     });
@@ -149,7 +149,7 @@ export default function SpaceCodeScene() {
         speed: 0.36,
         tilt: 0.34,
         glyph: "{ }",
-        color: "#61d3c2",
+        color: "#f5f7fa",
         phase: 0.5,
       },
       {
@@ -158,7 +158,7 @@ export default function SpaceCodeScene() {
         speed: -0.21,
         tilt: -0.48,
         glyph: "</>",
-        color: "#ef6655",
+        color: "#b8bec8",
         phase: 2.6,
       },
       {
@@ -167,7 +167,7 @@ export default function SpaceCodeScene() {
         speed: 0.14,
         tilt: 0.7,
         glyph: "AI",
-        color: "#f4cb66",
+        color: "#7e8794",
         phase: 4.1,
       },
     ];
@@ -211,8 +211,8 @@ export default function SpaceCodeScene() {
     const starCount = isMobile ? 700 : 1450;
     const starPositions = new Float32Array(starCount * 3);
     const starColors = new Float32Array(starCount * 3);
-    const teal = new THREE.Color(0x61d3c2);
-    const white = new THREE.Color(0xd8e6e7);
+    const brightStar = new THREE.Color(0xf5f7fa);
+    const white = new THREE.Color(0x9aa2ad);
 
     for (let index = 0; index < starCount; index += 1) {
       const radius = 18 + Math.random() * 42;
@@ -223,7 +223,7 @@ export default function SpaceCodeScene() {
       starPositions[offset + 1] = radius * Math.cos(phi);
       starPositions[offset + 2] = radius * Math.sin(phi) * Math.sin(theta);
 
-      const color = Math.random() > 0.84 ? teal : white;
+      const color = Math.random() > 0.84 ? brightStar : white;
       starColors[offset] = color.r;
       starColors[offset + 1] = color.g;
       starColors[offset + 2] = color.b;
@@ -249,7 +249,7 @@ export default function SpaceCodeScene() {
     const debrisGeometry = new THREE.TetrahedronGeometry(0.18, 0);
     for (let index = 0; index < (isMobile ? 18 : 36); index += 1) {
       const material = new THREE.MeshStandardMaterial({
-        color: index % 5 === 0 ? 0xef6655 : 0x4a7478,
+        color: index % 5 === 0 ? 0xf5f7fa : 0x5e6672,
         metalness: 0.7,
         roughness: 0.4,
       });

@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Routes,
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -11,30 +12,42 @@ import Signup from "./pages/Signup";
 import Preview from "./pages/Preview";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
-import CareerLoadout from "./pages/CareerLoadout";
+import PublicProfile from "./pages/PublicProfile";
+import Posts from "./pages/Posts";
 import Clan from "./pages/Clan";
 import TimeCapsules from "./pages/TimeCapsules";
+import TimeCapsuleDetail from "./pages/TimeCapsuleDetail";
 import Chat from "./pages/Chat";
 import Problem from "./pages/Problem";
+import PracticeArena from "./pages/PracticeArena";
 import RabbitHole from "./pages/RabbitHole";
 import LearningPath from "./pages/LearningPath";
 import PowerUpHunt from "./pages/PowerUpHunt";
+import SeasonDetails from "./pages/SeasonDetails";
 import Notifications from "./components/Notifications";
 import ThemeToggle from "./components/ThemeToggle";
+import AuthenticatedShell from "./components/AuthenticatedShell";
 import "./App.css";
 import "./styles/Theme.css";
+import "./styles/VisualRefresh.css";
 
 import {
   joinUserNotificationRoom,
   socket,
 } from "./socket";
-
-const XP_NOTIFICATIONS_KEY = "xpNotifications";
+import {
+  broadcastNotificationCount,
+  getNotificationText,
+  loadNotificationActors,
+  loadUnreadNotificationSnapshot,
+  loadXpNotifications,
+  NOTIFICATION_TOAST_EVENT,
+  pushNotificationToast,
+  XP_NOTIFICATIONS_KEY,
+} from "./utils/notificationCenter";
 
 function saveXpNotification(notification) {
-  const existingNotifications = JSON.parse(
-    localStorage.getItem(XP_NOTIFICATIONS_KEY) || "[]"
-  );
+  const existingNotifications = loadXpNotifications();
 
   const nextNotifications = [
     notification,
@@ -53,10 +66,20 @@ function saveXpNotification(notification) {
       detail: nextNotifications,
     })
   );
+
+  pushNotificationToast({
+    id: notification.id,
+    title: "XP update",
+    body: `${notification.senderName} gained +${notification.amount} XP.`,
+  });
 }
 
 function LiveNotificationListener() {
   const location = useLocation();
+  const knownSocialIdsRef = useRef(new Set());
+  const knownFriendRequestIdsRef = useRef(new Set());
+  const socialPollInitializedRef = useRef(false);
+  const activeUserRef = useRef("");
 
   useEffect(() => {
     const currentUser = JSON.parse(
@@ -71,6 +94,103 @@ function LiveNotificationListener() {
   }, [location.pathname]);
 
   useEffect(() => {
+    const currentUser = JSON.parse(
+      localStorage.getItem("loggedInUser") || "null"
+    );
+    const currentUserId = currentUser?.id ? String(currentUser.id) : "";
+
+    if (!currentUserId) {
+      broadcastNotificationCount(0);
+      knownSocialIdsRef.current = new Set();
+      knownFriendRequestIdsRef.current = new Set();
+      socialPollInitializedRef.current = false;
+      activeUserRef.current = "";
+      return undefined;
+    }
+
+    if (activeUserRef.current !== currentUserId) {
+      knownSocialIdsRef.current = new Set();
+      knownFriendRequestIdsRef.current = new Set();
+      socialPollInitializedRef.current = false;
+      activeUserRef.current = currentUserId;
+    }
+
+    let cancelled = false;
+
+    const pollNotifications = async () => {
+      try {
+        const snapshot = await loadUnreadNotificationSnapshot(currentUserId);
+        if (cancelled) return;
+
+        broadcastNotificationCount(snapshot.count);
+
+        const knownIds = knownSocialIdsRef.current;
+        const knownFriendRequestIds = knownFriendRequestIdsRef.current;
+        const newNotifications = snapshot.socialNotifications.filter(
+          (notification) => !knownIds.has(notification.id)
+        );
+        const newFriendRequests = snapshot.pendingRequests.filter(
+          (request) => !knownFriendRequestIds.has(request.id)
+        );
+
+        knownSocialIdsRef.current = new Set(
+          snapshot.socialNotifications.map((notification) => notification.id)
+        );
+        knownFriendRequestIdsRef.current = new Set(
+          snapshot.pendingRequests.map((request) => request.id)
+        );
+
+        if (!socialPollInitializedRef.current) {
+          socialPollInitializedRef.current = true;
+          return;
+        }
+
+        if (newNotifications.length === 0 && newFriendRequests.length === 0) {
+          return;
+        }
+
+        const normalizedFriendRequests = newFriendRequests.map((request) => ({
+          id: request.id,
+          actor_id: request.sender_id,
+          notification_type: "friend_request",
+          created_at: request.created_at,
+          metadata: {},
+        }));
+        const toastCandidates = [
+          ...newNotifications,
+          ...normalizedFriendRequests,
+        ].sort(
+          (first, second) =>
+            new Date(second.created_at).getTime() -
+            new Date(first.created_at).getTime()
+        );
+        const actorMap = await loadNotificationActors(toastCandidates);
+        if (cancelled) return;
+
+        const newest = toastCandidates[0];
+        pushNotificationToast({
+          id: newest.id,
+          title: "New notification",
+          body: getNotificationText(
+            newest,
+            actorMap.get(String(newest.actor_id))
+          ),
+        });
+      } catch {
+        // Notification polling should never block the rest of the app.
+      }
+    };
+
+    pollNotifications();
+    const pollTimer = window.setInterval(pollNotifications, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollTimer);
+    };
+  }, [location.pathname]);
+
+  useEffect(() => {
     socket.on("xp:notification", saveXpNotification);
 
     return () => {
@@ -79,6 +199,51 @@ function LiveNotificationListener() {
   }, []);
 
   return null;
+}
+
+function NotificationToastHost() {
+  const navigate = useNavigate();
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const handleToast = (event) => {
+      setToast(event.detail);
+    };
+
+    window.addEventListener(NOTIFICATION_TOAST_EVENT, handleToast);
+
+    return () => {
+      window.removeEventListener(NOTIFICATION_TOAST_EVENT, handleToast);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
+
+  const openNotifications = useCallback(() => {
+    setToast(null);
+    navigate("/notifications");
+  }, [navigate]);
+
+  if (!toast) return null;
+
+  return (
+    <button
+      className="notification-toast"
+      type="button"
+      onClick={openNotifications}
+    >
+      <strong>{toast.title || "Notification"}</strong>
+      <span>{toast.body}</span>
+    </button>
+  );
 }
 
 function RequireAuth({ children }) {
@@ -90,11 +255,20 @@ function RequireAuth({ children }) {
     : <Navigate to="/login" />;
 }
 
+function ProtectedShellPage({ children }) {
+  return (
+    <RequireAuth>
+      <AuthenticatedShell>{children}</AuthenticatedShell>
+    </RequireAuth>
+  );
+}
+
 
 export default function App() {
   return (
     <>
       <LiveNotificationListener />
+      <NotificationToastHost />
       <ThemeToggle />
 
       <Routes>
@@ -125,90 +299,131 @@ export default function App() {
         <Route
           path="/profile"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <Profile />
-            </RequireAuth>
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/profile/:playerId"
+          element={
+            <ProtectedShellPage>
+              <PublicProfile />
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/posts"
+          element={
+            <ProtectedShellPage>
+              <Posts />
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/career-loadout"
-          element={
-            <RequireAuth>
-              <CareerLoadout />
-            </RequireAuth>
-          }
+          element={<Navigate to="/profile" replace />}
         />
 
         <Route
           path="/notifications"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <Notifications />
-            </RequireAuth>
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/clans"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <Clan />
-            </RequireAuth>
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/time-capsules"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <TimeCapsules />
-            </RequireAuth>
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/time-capsules/:capsuleId"
+          element={
+            <ProtectedShellPage>
+              <TimeCapsuleDetail />
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/chat"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <Chat />
-            </RequireAuth>
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/practice-arena"
+          element={
+            <ProtectedShellPage>
+              <PracticeArena />
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/problems/:problemId"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <Problem />
-            </RequireAuth>
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/rabbit-hole"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <RabbitHole />
-            </RequireAuth>
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/rabbit-hole/:pathId"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <LearningPath />
-            </RequireAuth>
+            </ProtectedShellPage>
           }
         />
 
         <Route
           path="/power-up-hunt"
           element={
-            <RequireAuth>
+            <ProtectedShellPage>
               <PowerUpHunt />
-            </RequireAuth>
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/season-one"
+          element={
+            <ProtectedShellPage>
+              <SeasonDetails />
+            </ProtectedShellPage>
           }
         />
       </Routes>

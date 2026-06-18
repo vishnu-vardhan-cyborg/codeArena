@@ -1,24 +1,77 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Archive,
-  Gamepad2,
-  Plus,
-  RotateCcw,
-  Send,
-  Trash2,
+  Camera,
+  ImagePlus,
+  PenSquare,
+  Save,
   X,
 } from "lucide-react";
+import CareerLoadoutPanel from "../components/CareerLoadoutPanel";
+import { COUNTRIES } from "../data/countries";
+import {
+  buildCareerStats,
+  buildMomentumPoints,
+  buildRadarPoints,
+} from "../features/careerLoadout/careerStats";
+import {
+  calculateRollingStreak,
+  loadUserProblemStats,
+} from "../features/problems/problemApi";
 import { supabase } from "../supabase";
+import "../styles/CareerLoadout.css";
 import "../styles/Profile.css";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
 const PROFILE_PICS_BUCKET = "profilepics";
-const XP_LEVEL_SIZE = 100;
 const CALENDAR_WEEKS = 16;
-const SOCIAL_TABLE_MISSING_CODES = new Set(["PGRST205", "42P01"]);
+const GENDER_OPTIONS = ["Male", "Female", "Prefer not to say"];
+const PROFILE_TYPE_OPTIONS = [
+  { value: "student", label: "Student" },
+  { value: "employee", label: "Employee" },
+  { value: "vibe_coder", label: "Vibe coder" },
+];
+const PROFILE_TYPE_LABELS = PROFILE_TYPE_OPTIONS.reduce((labels, option) => {
+  labels[option.value] = option.label;
+  return labels;
+}, {});
 const isRlsError = (error) =>
   error?.message?.toLowerCase().includes("row-level security");
+
+const loadImage = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+
+const cropImageToBlob = async (previewUrl, zoom, offset) => {
+  const image = await loadImage(previewUrl);
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = size;
+  canvas.height = size;
+  context.fillStyle = "#101820";
+  context.fillRect(0, 0, size, size);
+
+  const baseScale = Math.max(size / image.width, size / image.height);
+  const scale = baseScale * zoom;
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const maxOffsetX = Math.max(0, (drawWidth - size) / 2);
+  const maxOffsetY = Math.max(0, (drawHeight - size) / 2);
+  const drawX = (size - drawWidth) / 2 + (offset.x / 100) * maxOffsetX;
+  const drawY = (size - drawHeight) / 2 + (offset.y / 100) * maxOffsetY;
+
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
+  });
+};
 
 const getProfilePicPath = (url) => {
   if (!url) {
@@ -69,22 +122,6 @@ const getCalendarDays = () => {
   });
 };
 
-const calculateStreak = (activityByDate) => {
-  let cursor = startOfDay(new Date());
-
-  if (!activityByDate[getDateKey(cursor)]) {
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  let streak = 0;
-  while (activityByDate[getDateKey(cursor)]) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
-};
-
 const getActivityLevel = (count) => {
   if (!count) return 0;
   if (count === 1) return 1;
@@ -107,21 +144,26 @@ export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [friends, setFriends] = useState([]);
   const [followers, setFollowers] = useState([]);
-  const [posts, setPosts] = useState([]);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [postCount, setPostCount] = useState(0);
   const [activity, setActivity] = useState([]);
   const [networkView, setNetworkView] = useState("");
-  const [postContent, setPostContent] = useState("");
-  const [postView, setPostView] = useState("active");
-  const [postModalOpen, setPostModalOpen] = useState(false);
-  const [postActionId, setPostActionId] = useState("");
   const [editedName, setEditedName] = useState("");
+  const [editedGender, setEditedGender] = useState("");
+  const [editedCountry, setEditedCountry] = useState("India");
+  const [editedBio, setEditedBio] = useState("");
+  const [editedProfileType, setEditedProfileType] = useState("");
+  const [editedCollegeName, setEditedCollegeName] = useState("");
+  const [editedOrganizationName, setEditedOrganizationName] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
-  const [editMode, setEditMode] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [profileEditorSaving, setProfileEditorSaving] = useState(false);
+  const [cropPreviewUrl, setCropPreviewUrl] = useState("");
+  const [cropFileName, setCropFileName] = useState("");
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [activitySetupMissing, setActivitySetupMissing] = useState(false);
-  const [socialSetupMissing, setSocialSetupMissing] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -140,7 +182,12 @@ export default function Profile() {
 
     setProfile(data);
     setEditedName(data?.uusername || "");
-    setEditMode(false);
+    setEditedGender(data?.gender || "");
+    setEditedCountry(data?.country || "India");
+    setEditedBio(data?.bio || "");
+    setEditedProfileType(data?.profile_type || "");
+    setEditedCollegeName(data?.college_name || "");
+    setEditedOrganizationName(data?.organization_name || "");
   }, [currentUser?.id]);
 
   const loadFriends = useCallback(async () => {
@@ -180,23 +227,14 @@ export default function Profile() {
   const loadActivity = useCallback(async () => {
     if (!currentUserId) return;
 
-    const calendarDays = getCalendarDays();
-    const { data, error } = await supabase
-      .from("user_activity")
-      .select("id, activity_type, problem_id, activity_date, metadata, created_at")
-      .eq("user_id", currentUserId)
-      .gte("activity_date", getDateKey(calendarDays[0]))
-      .order("activity_date", { ascending: false });
-
-    if (error) {
-      if (error.code === "PGRST205" || error.code === "42P01") {
-        setActivitySetupMissing(true);
-      }
+    try {
+      const problemStats = await loadUserProblemStats(currentUserId);
+      setActivitySetupMissing(false);
+      setActivity(problemStats.activity || []);
+    } catch {
+      setActivitySetupMissing(true);
       return;
     }
-
-    setActivitySetupMissing(false);
-    setActivity(data || []);
   }, [currentUserId]);
 
   const loadSocial = useCallback(async () => {
@@ -204,26 +242,24 @@ export default function Profile() {
 
     const [
       { data: followRelations, error: followError },
-      { data: postData, error: postError },
+      followingResult,
+      postCountResult,
     ] = await Promise.all([
       supabase
         .from("user_follows")
         .select("follower_id")
         .eq("following_id", currentUserId),
       supabase
+        .from("user_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", currentUserId),
+      supabase
         .from("posts")
-        .select("*")
-        .eq("user_id", currentUserId)
-        .order("created_at", { ascending: false }),
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", currentUserId),
     ]);
 
-    if (followError || postError) {
-      if (
-        SOCIAL_TABLE_MISSING_CODES.has(followError?.code) ||
-        SOCIAL_TABLE_MISSING_CODES.has(postError?.code)
-      ) {
-        setSocialSetupMissing(true);
-      }
+    if (followError) {
       return;
     }
 
@@ -244,8 +280,8 @@ export default function Profile() {
     }
 
     setFollowers(followerProfiles);
-    setPosts(postData || []);
-    setSocialSetupMissing(false);
+    setFollowingCount(followingResult.count || 0);
+    setPostCount(postCountResult.count || 0);
   }, [currentUserId]);
 
   useEffect(() => {
@@ -267,36 +303,14 @@ export default function Profile() {
     navigate,
   ]);
 
-  useEffect(() => {
-    if (!profile || window.location.hash !== "#posts") return;
-
-    requestAnimationFrame(() => {
-      document.getElementById("posts")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-      setPostModalOpen(true);
-    });
-  }, [profile]);
-
-  useEffect(() => {
-    if (!postModalOpen) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setPostModalOpen(false);
+  useEffect(
+    () => () => {
+      if (cropPreviewUrl) {
+        URL.revokeObjectURL(cropPreviewUrl);
       }
-    };
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [postModalOpen]);
+    },
+    [cropPreviewUrl]
+  );
 
   const calendarDays = useMemo(getCalendarDays, []);
 
@@ -315,7 +329,7 @@ export default function Profile() {
     [activity]
   );
 
-  const currentStreak = calculateStreak(activityByDate);
+  const currentStreak = calculateRollingStreak(activity);
   const activeDays = Object.keys(activityByDate).length;
   const longestStreak = useMemo(() => {
     let longest = 0;
@@ -350,358 +364,359 @@ export default function Profile() {
     return labels;
   }, [calendarDays]);
 
-  const handleNameUpdate = async () => {
-    const newName = editedName.trim();
-    setMessage("");
-
-    if (!newName || newName === profile.uusername) {
-      setMessageType("error");
-      setMessage(!newName ? "Name cannot be empty" : "Name is unchanged");
-      return;
+  const resetCrop = () => {
+    if (cropPreviewUrl) {
+      URL.revokeObjectURL(cropPreviewUrl);
     }
-
-    const { data: existingName } = await supabase
-      .from("lusers")
-      .select("*")
-      .eq("uusername", newName)
-      .neq("id", currentUser.id)
-      .maybeSingle();
-
-    if (existingName) {
-      setMessageType("error");
-      setMessage("Name already exists");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("lusers")
-      .update({ uusername: newName })
-      .eq("id", currentUser.id)
-      .select()
-      .single();
-
-    if (error) {
-      setMessageType("error");
-      setMessage(error.message);
-      return;
-    }
-
-    setProfile(data);
-    setEditMode(false);
-    localStorage.setItem(
-      "loggedInUser",
-      JSON.stringify({ ...currentUser, uusername: data.uusername })
-    );
-    setMessageType("success");
-    setMessage("Player name updated");
+    setCropPreviewUrl("");
+    setCropFileName("");
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
   };
 
-  const handleProfilePicUpload = async (event) => {
+  const openProfileEditor = () => {
+    setEditedName(profile.uusername || "");
+    setEditedGender(profile.gender || "");
+    setEditedCountry(profile.country || "India");
+    setEditedBio(profile.bio || "");
+    setEditedProfileType(profile.profile_type || "");
+    setEditedCollegeName(profile.college_name || "");
+    setEditedOrganizationName(profile.organization_name || "");
+    resetCrop();
+    setProfileEditorOpen(true);
+    setMessage("");
+  };
+
+  const closeProfileEditor = () => {
+    if (profileEditorSaving) return;
+    resetCrop();
+    setProfileEditorOpen(false);
+  };
+
+  const handleProfileImageSelect = (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      event.target.value = "";
       setMessageType("error");
       setMessage("Please upload a valid image file");
       return;
     }
 
-    setUploading(true);
+    if (cropPreviewUrl) {
+      URL.revokeObjectURL(cropPreviewUrl);
+    }
+
+    setCropPreviewUrl(URL.createObjectURL(file));
+    setCropFileName(file.name);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+  };
+
+  const handleProfileSave = async () => {
+    const newName = editedName.trim();
+    const newGender = editedGender.trim();
+    const newCountry = editedCountry.trim();
+    const newBio = editedBio.trim();
+    const newProfileType = editedProfileType.trim();
+    const newCollegeName = editedCollegeName.trim();
+    const newOrganizationName = editedOrganizationName.trim();
     setMessage("");
-    const extension = file.name.split(".").pop() || "jpg";
-    const filePath = `${currentUser.id}/${Date.now()}.${extension}`;
-    const previousPicPath = getProfilePicPath(profile.profile_pic);
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(PROFILE_PICS_BUCKET)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      event.target.value = "";
-      setUploading(false);
+    if (!newName) {
       setMessageType("error");
-      setMessage(
-        isRlsError(uploadError)
-          ? "Profile picture upload is blocked by Supabase Storage policies. Run backend/profile-pics-storage-schema.sql."
-          : uploadError.message
-      );
+      setMessage("Name cannot be empty");
       return;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from(PROFILE_PICS_BUCKET)
-      .getPublicUrl(uploadData.path);
-    const profileUrl = publicUrlData?.publicUrl;
+    if (!newCountry) {
+      setMessageType("error");
+      setMessage("Country cannot be empty");
+      return;
+    }
+
+    if (newGender && !GENDER_OPTIONS.includes(newGender)) {
+      setMessageType("error");
+      setMessage("Choose a valid gender option");
+      return;
+    }
+
+    if (
+      newProfileType &&
+      !PROFILE_TYPE_OPTIONS.some((option) => option.value === newProfileType)
+    ) {
+      setMessageType("error");
+      setMessage("Choose a valid profile type");
+      return;
+    }
+
+    if (newProfileType === "student" && !newCollegeName) {
+      setMessageType("error");
+      setMessage("College name is required for student profiles");
+      return;
+    }
+
+    if (newProfileType === "employee" && !newOrganizationName) {
+      setMessageType("error");
+      setMessage("Organization is required for employee profiles");
+      return;
+    }
+
+    if (newBio.length > 280) {
+      setMessageType("error");
+      setMessage("Bio must be 280 characters or less");
+      return;
+    }
+
+    setProfileEditorSaving(true);
+
+    if (newName !== profile.uusername) {
+      const { data: existingName } = await supabase
+        .from("lusers")
+        .select("*")
+        .eq("uusername", newName)
+        .neq("id", currentUser.id)
+        .maybeSingle();
+
+      if (existingName) {
+        setMessageType("error");
+        setMessage("Name already exists");
+        setProfileEditorSaving(false);
+        return;
+      }
+    }
+
+    let uploadedPath = "";
+    let profileUrl = profile.profile_pic;
+    const previousPicPath = getProfilePicPath(profile.profile_pic);
+
+    if (cropPreviewUrl) {
+      let croppedBlob = null;
+      try {
+        croppedBlob = await cropImageToBlob(
+          cropPreviewUrl,
+          cropZoom,
+          cropOffset
+        );
+      } catch {
+        croppedBlob = null;
+      }
+
+      if (!croppedBlob) {
+        setProfileEditorSaving(false);
+        setMessageType("error");
+        setMessage("Could not crop the selected image");
+        return;
+      }
+
+      uploadedPath = `${currentUser.id}/${Date.now()}-${cropFileName
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-zA-Z0-9_-]/g, "-")}.jpg`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(PROFILE_PICS_BUCKET)
+        .upload(uploadedPath, croppedBlob, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: "image/jpeg",
+        });
+
+      if (uploadError) {
+        setProfileEditorSaving(false);
+        setMessageType("error");
+        setMessage(
+          isRlsError(uploadError)
+            ? "Profile picture upload is blocked by Supabase Storage policies. Run backend/profile-pics-storage-schema.sql."
+            : uploadError.message
+        );
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(PROFILE_PICS_BUCKET)
+        .getPublicUrl(uploadData.path);
+      profileUrl = publicUrlData?.publicUrl;
+    }
+
+    const updates = {
+      uusername: newName,
+      gender: newGender || null,
+      country: newCountry,
+      bio: newBio || null,
+      profile_type: newProfileType || null,
+      college_name:
+        newProfileType === "student" ? newCollegeName || null : null,
+      organization_name:
+        newProfileType === "employee" ? newOrganizationName || null : null,
+      profile_pic: profileUrl,
+    };
 
     const { data, error } = await supabase
       .from("lusers")
-      .update({ profile_pic: profileUrl })
+      .update(updates)
       .eq("id", currentUser.id)
       .select()
       .single();
 
     if (error) {
-      await supabase.storage.from(PROFILE_PICS_BUCKET).remove([uploadData.path]);
-      event.target.value = "";
-      setUploading(false);
+      if (uploadedPath) {
+        await supabase.storage.from(PROFILE_PICS_BUCKET).remove([uploadedPath]);
+      }
+      setProfileEditorSaving(false);
       setMessageType("error");
       setMessage(
         isRlsError(error)
-          ? "The profile image uploaded, but updating lusers.profile_pic is blocked by its Supabase policy."
+          ? "Profile update is blocked by the lusers Supabase policy."
           : error.message
       );
       return;
     }
 
-    if (previousPicPath && previousPicPath !== uploadData.path) {
+    if (previousPicPath && uploadedPath && previousPicPath !== uploadedPath) {
       await supabase.storage.from(PROFILE_PICS_BUCKET).remove([previousPicPath]);
     }
 
-    event.target.value = "";
-    setUploading(false);
+    setProfileEditorSaving(false);
     setProfile(data);
+    setProfileEditorOpen(false);
+    resetCrop();
     localStorage.setItem(
       "loggedInUser",
-      JSON.stringify({ ...currentUser, profile_pic: profileUrl })
+      JSON.stringify({
+        ...currentUser,
+        uusername: data.uusername,
+        profile_pic: data.profile_pic,
+        gender: data.gender,
+        country: data.country,
+        bio: data.bio,
+        profile_type: data.profile_type,
+        college_name: data.college_name,
+        organization_name: data.organization_name,
+      })
     );
     setMessageType("success");
-    setMessage("Profile picture updated");
-  };
-
-  const createPost = async () => {
-    const content = postContent.trim();
-    setMessage("");
-
-    if (!content) {
-      setMessageType("error");
-      setMessage("Write something valuable before sharing.");
-      return;
-    }
-
-    if (content.length > 2000) {
-      setMessageType("error");
-      setMessage("Posts can contain up to 2,000 characters.");
-      return;
-    }
-
-    setIsPosting(true);
-    const { data, error } = await supabase
-      .from("posts")
-      .insert([{ user_id: currentUserId, content }])
-      .select("*")
-      .single();
-    setIsPosting(false);
-
-    if (error) {
-      if (SOCIAL_TABLE_MISSING_CODES.has(error.code)) {
-        setSocialSetupMissing(true);
-      }
-      setMessageType("error");
-      setMessage(error.message);
-      return;
-    }
-
-    setPosts((existingPosts) => [data, ...existingPosts]);
-    setPostContent("");
-    setPostModalOpen(false);
-    setMessageType("success");
-    setMessage("Post shared with your network.");
-  };
-
-  const archivePost = async (post, shouldArchive) => {
-    setPostActionId(post.id);
-    setMessage("");
-
-    const archivedAt = shouldArchive ? new Date().toISOString() : null;
-    const { data, error } = await supabase
-      .from("posts")
-      .update({ archived_at: archivedAt, updated_at: new Date().toISOString() })
-      .eq("id", post.id)
-      .eq("user_id", currentUserId)
-      .select("*")
-      .single();
-
-    setPostActionId("");
-
-    if (error) {
-      setMessageType("error");
-      setMessage(
-        error.code === "PGRST204"
-          ? "Run backend/social-schema.sql in Supabase to enable post archiving."
-          : error.message
-      );
-      return;
-    }
-
-    setPosts((existingPosts) =>
-      existingPosts.map((existingPost) =>
-        existingPost.id === post.id ? data : existingPost
-      )
-    );
-    setMessageType("success");
-    setMessage(shouldArchive ? "Post archived." : "Post restored.");
-  };
-
-  const deletePost = async (post) => {
-    if (!window.confirm("Delete this post permanently?")) return;
-
-    setPostActionId(post.id);
-    setMessage("");
-
-    const { error } = await supabase
-      .from("posts")
-      .delete()
-      .eq("id", post.id)
-      .eq("user_id", currentUserId);
-
-    setPostActionId("");
-
-    if (error) {
-      setMessageType("error");
-      setMessage(error.message);
-      return;
-    }
-
-    setPosts((existingPosts) =>
-      existingPosts.filter((existingPost) => existingPost.id !== post.id)
-    );
-    setMessageType("success");
-    setMessage("Post deleted.");
+    setMessage("Profile updated");
   };
 
   if (!profile) {
     return <p className="profile-loading">Loading player profile...</p>;
   }
 
-  const xpValue = Number(profile.xp || 0);
-  const level = Math.floor(xpValue / XP_LEVEL_SIZE) + 1;
-  const levelXp = xpValue % XP_LEVEL_SIZE;
-  const progress = Math.min(100, (levelXp / XP_LEVEL_SIZE) * 100);
-  const visiblePosts = posts.filter((post) =>
-    postView === "archived" ? Boolean(post.archived_at) : !post.archived_at
+  const careerStats = buildCareerStats({
+    profile,
+    activity,
+    friendsCount: friends.length,
+    followersCount: followers.length,
+    followingCount,
+    postsCount: postCount,
+  });
+  const radarPoints = buildRadarPoints(careerStats.axes);
+  const momentumPoints = buildMomentumPoints(careerStats.momentum);
+  const countryOptions =
+    editedCountry && !COUNTRIES.includes(editedCountry)
+      ? [editedCountry, ...COUNTRIES]
+      : COUNTRIES;
+  const identitySlot = (
+    <section className="profile-identity-card">
+      <div className="profile-identity-main">
+        <div className="profile-name-block">
+          <span className="profile-eyebrow">Identity</span>
+          <h2>{profile.uusername || profile.username}</h2>
+          <p>{profile.bio || "No bio added yet."}</p>
+        </div>
+
+        <div className="profile-identity-actions">
+          <button
+            className="profile-loadout-button"
+            type="button"
+            onClick={openProfileEditor}
+          >
+            <Camera size={17} />
+            Edit profile
+          </button>
+
+          <button
+            className="profile-secondary-button"
+            type="button"
+            onClick={() => navigate("/posts")}
+          >
+            <PenSquare size={17} />
+            Posts
+          </button>
+        </div>
+      </div>
+
+      <div className="profile-details">
+        <div>
+          <span>Email</span>
+          <strong>{profile.username}</strong>
+        </div>
+        <div>
+          <span>Age</span>
+          <strong>{profile.age ?? "N/A"}</strong>
+        </div>
+        <div>
+          <span>Gender</span>
+          <strong>{profile.gender || "N/A"}</strong>
+        </div>
+        <div>
+          <span>Country</span>
+          <strong>{profile.country || "N/A"}</strong>
+        </div>
+        <div>
+          <span>Path</span>
+          <strong>{PROFILE_TYPE_LABELS[profile.profile_type] || "N/A"}</strong>
+        </div>
+        {profile.profile_type === "student" && (
+          <div>
+            <span>College</span>
+            <strong>{profile.college_name || "N/A"}</strong>
+          </div>
+        )}
+        {profile.profile_type === "employee" && (
+          <div>
+            <span>Organization</span>
+            <strong>{profile.organization_name || "N/A"}</strong>
+          </div>
+        )}
+        <button
+          className={networkView === "friends" ? "active" : ""}
+          type="button"
+          onClick={() =>
+            setNetworkView((view) => (view === "friends" ? "" : "friends"))
+          }
+        >
+          <span>Friends</span>
+          <strong>{friends.length}</strong>
+        </button>
+        <button
+          className={networkView === "followers" ? "active" : ""}
+          type="button"
+          onClick={() =>
+            setNetworkView((view) => (view === "followers" ? "" : "followers"))
+          }
+        >
+          <span>Followers</span>
+          <strong>{followers.length}</strong>
+        </button>
+      </div>
+    </section>
   );
 
   return (
     <div className="page profile-page">
       <header className="profile-page-header">
         <div>
-          <span className="profile-eyebrow">Player dashboard</span>
-          <h1>Profile & Progress</h1>
-          <p>Your coding consistency, rank progress, and connections.</p>
+          <span className="profile-eyebrow">Live player telemetry</span>
+          <h1>Career Loadout</h1>
         </div>
-        <button className="profile-back-button" onClick={() => navigate("/home")}>
-          Back
-        </button>
       </header>
 
       {message && <p className={`profile-message ${messageType}`}>{message}</p>}
 
       <div className="profile-layout">
-        <aside className="profile-identity-panel">
-          <div className="profile-avatar-wrap">
-            <img
-              src={profile.profile_pic || DEFAULT_AVATAR}
-              alt="Profile"
-              className="profile-dashboard-avatar"
-            />
-            <span>LVL {level}</span>
-          </div>
-
-          <label className={`profile-upload ${uploading ? "disabled" : ""}`}>
-            {uploading ? "Uploading..." : "Change avatar"}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleProfilePicUpload}
-              disabled={uploading}
-            />
-          </label>
-
-          {!editMode ? (
-            <div className="profile-name-block">
-              <h2>{profile.uusername || profile.username}</h2>
-              <button onClick={() => setEditMode(true)}>Edit name</button>
-            </div>
-          ) : (
-            <div className="profile-name-editor">
-              <input
-                value={editedName}
-                onChange={(event) => setEditedName(event.target.value)}
-              />
-              <div>
-                <button onClick={handleNameUpdate}>Save</button>
-                <button
-                  onClick={() => {
-                    setEditedName(profile.uusername || "");
-                    setEditMode(false);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="profile-details">
-            <div>
-              <span>Email</span>
-              <strong>{profile.username}</strong>
-            </div>
-            <div>
-              <span>Age</span>
-              <strong>{profile.age ?? "N/A"}</strong>
-            </div>
-            <button
-              className={networkView === "friends" ? "active" : ""}
-              type="button"
-              onClick={() =>
-                setNetworkView((view) => (view === "friends" ? "" : "friends"))
-              }
-            >
-              <span>Friends</span>
-              <strong>{friends.length}</strong>
-            </button>
-            <button
-              className={networkView === "followers" ? "active" : ""}
-              type="button"
-              onClick={() =>
-                setNetworkView((view) =>
-                  view === "followers" ? "" : "followers"
-                )
-              }
-            >
-              <span>Followers</span>
-              <strong>{followers.length}</strong>
-            </button>
-          </div>
-
-          <div className="level-progress">
-            <div>
-              <span>Level {level}</span>
-              <strong>{levelXp}/{XP_LEVEL_SIZE} XP</strong>
-            </div>
-            <div className="level-progress-track">
-              <span style={{ width: `${progress}%` }} />
-            </div>
-            <small>{XP_LEVEL_SIZE - levelXp} XP until level {level + 1}</small>
-          </div>
-
-          <button
-            className="profile-loadout-button"
-            type="button"
-            onClick={() => navigate("/career-loadout")}
-          >
-            <Gamepad2 size={17} />
-            Open Career Loadout
-          </button>
-        </aside>
-
-        <main className="profile-post-column">
+        <main className="profile-loadout-column">
           {networkView && (
             <section className="profile-network-panel">
               <div className="profile-panel-heading">
@@ -750,115 +765,13 @@ export default function Profile() {
             </section>
           )}
 
-          <section className="profile-posts-panel" id="posts">
-            <div className="profile-panel-heading">
-              <div>
-                <span className="profile-eyebrow">Share knowledge</span>
-                <h2>Posts</h2>
-                <p>Your learning notes and useful discoveries.</p>
-              </div>
-              <button
-                className="profile-create-post-button"
-                type="button"
-                onClick={() => setPostModalOpen(true)}
-              >
-                <Plus size={16} />
-                Post
-              </button>
-            </div>
-
-            <div className="profile-post-tabs" role="tablist">
-              <button
-                className={postView === "active" ? "active" : ""}
-                type="button"
-                role="tab"
-                aria-selected={postView === "active"}
-                onClick={() => setPostView("active")}
-              >
-                Published
-                <span>{posts.filter((post) => !post.archived_at).length}</span>
-              </button>
-              <button
-                className={postView === "archived" ? "active" : ""}
-                type="button"
-                role="tab"
-                aria-selected={postView === "archived"}
-                onClick={() => setPostView("archived")}
-              >
-                Archived
-                <span>{posts.filter((post) => post.archived_at).length}</span>
-              </button>
-            </div>
-
-            {socialSetupMissing && (
-              <p className="profile-setup-note">
-                Run <strong>backend/social-schema.sql</strong> in Supabase to
-                enable posts, followers, and social notifications.
-              </p>
-            )}
-
-            {visiblePosts.length === 0 ? (
-              <p className="profile-empty">
-                {postView === "archived"
-                  ? "No archived posts."
-                  : "No posts shared yet."}
-              </p>
-            ) : (
-              <div className="profile-post-list">
-                {visiblePosts.map((post) => (
-                  <article key={post.id}>
-                    <div className="profile-post-header">
-                      <img
-                        src={profile.profile_pic || DEFAULT_AVATAR}
-                        alt=""
-                      />
-                      <span>
-                        <strong>{profile.uusername || profile.username}</strong>
-                        <small>
-                          {new Date(post.created_at).toLocaleString()}
-                        </small>
-                      </span>
-                      <div className="profile-post-actions">
-                        <button
-                          type="button"
-                          title={
-                            post.archived_at ? "Restore post" : "Archive post"
-                          }
-                          aria-label={
-                            post.archived_at ? "Restore post" : "Archive post"
-                          }
-                          disabled={postActionId === post.id}
-                          onClick={() => archivePost(post, !post.archived_at)}
-                        >
-                          {post.archived_at ? (
-                            <RotateCcw size={15} />
-                          ) : (
-                            <Archive size={15} />
-                          )}
-                        </button>
-                        <button
-                          className="delete"
-                          type="button"
-                          title="Delete post"
-                          aria-label="Delete post"
-                          disabled={postActionId === post.id}
-                          onClick={() => deletePost(post)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                    <p>{post.content}</p>
-                    {post.archived_at && (
-                      <small className="profile-archive-time">
-                        Archived {new Date(post.archived_at).toLocaleString()}
-                      </small>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+          <CareerLoadoutPanel
+            profile={profile}
+            stats={careerStats}
+            radarPoints={radarPoints}
+            momentumPoints={momentumPoints}
+            identitySlot={identitySlot}
+          />
         </main>
 
         <aside className="profile-progress-panel">
@@ -946,52 +859,220 @@ export default function Profile() {
         </aside>
       </div>
 
-      {postModalOpen && (
-        <div
-          className="profile-post-modal-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setPostModalOpen(false);
-            }
-          }}
-        >
+      {profileEditorOpen && (
+        <div className="profile-editor-backdrop" role="presentation">
           <section
-            className="profile-post-modal"
+            className="profile-editor-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="profile-post-modal-title"
+            aria-labelledby="profile-editor-title"
           >
-            <div className="profile-post-modal-heading">
+            <div className="profile-editor-heading">
               <div>
-                <span className="profile-eyebrow">Knowledge drop</span>
-                <h2 id="profile-post-modal-title">Create a post</h2>
+                <span className="profile-eyebrow">Player identity</span>
+                <h2 id="profile-editor-title">Edit profile</h2>
               </div>
               <button
                 type="button"
-                aria-label="Close post composer"
-                title="Close"
-                onClick={() => setPostModalOpen(false)}
+                aria-label="Close profile editor"
+                onClick={closeProfileEditor}
+                disabled={profileEditorSaving}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="profile-post-composer">
-              <textarea
-                autoFocus
-                maxLength={2000}
-                placeholder="Share something useful with your network..."
-                value={postContent}
-                onChange={(event) => setPostContent(event.target.value)}
-              />
-              <div>
-                <span>{postContent.length}/2000</span>
-                <button type="button" onClick={createPost} disabled={isPosting}>
-                  <Send size={15} />
-                  {isPosting ? "Sharing..." : "Share post"}
-                </button>
+            <div className="profile-editor-grid">
+              <div className="profile-crop-panel">
+                <div className="profile-crop-frame">
+                  {cropPreviewUrl ? (
+                    <img
+                      src={cropPreviewUrl}
+                      alt=""
+                      style={{
+                        transform: `translate(${cropOffset.x * 0.35}%, ${
+                          cropOffset.y * 0.35
+                        }%) scale(${cropZoom})`,
+                      }}
+                    />
+                  ) : (
+                    <img src={profile.profile_pic || DEFAULT_AVATAR} alt="" />
+                  )}
+                </div>
+
+                <label className="profile-image-picker">
+                  <ImagePlus size={17} />
+                  Choose image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfileImageSelect}
+                    disabled={profileEditorSaving}
+                  />
+                </label>
+
+                {cropPreviewUrl && (
+                  <div className="profile-crop-controls">
+                    <label>
+                      <span>Zoom</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="3"
+                        step="0.05"
+                        value={cropZoom}
+                        onChange={(event) =>
+                          setCropZoom(Number(event.target.value))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Horizontal</span>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={cropOffset.x}
+                        onChange={(event) =>
+                          setCropOffset((current) => ({
+                            ...current,
+                            x: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Vertical</span>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={cropOffset.y}
+                        onChange={(event) =>
+                          setCropOffset((current) => ({
+                            ...current,
+                            y: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
+
+              <div className="profile-editor-fields">
+                <label className="profile-editor-field">
+                  <span>Player name</span>
+                  <input
+                    value={editedName}
+                    onChange={(event) => setEditedName(event.target.value)}
+                    disabled={profileEditorSaving}
+                  />
+                </label>
+
+                <label className="profile-editor-field profile-select-field gender-select-field">
+                  <span>Gender</span>
+                  <select
+                    value={editedGender}
+                    onChange={(event) => setEditedGender(event.target.value)}
+                    disabled={profileEditorSaving}
+                  >
+                    <option value="">Not set</option>
+                    {GENDER_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="profile-editor-field">
+                  <span>Country</span>
+                  <select
+                    value={editedCountry}
+                    onChange={(event) => setEditedCountry(event.target.value)}
+                    disabled={profileEditorSaving}
+                  >
+                    {countryOptions.map((countryName) => (
+                      <option key={countryName} value={countryName}>
+                        {countryName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="profile-editor-field">
+                  <span>Profile path</span>
+                  <select
+                    value={editedProfileType}
+                    onChange={(event) => setEditedProfileType(event.target.value)}
+                    disabled={profileEditorSaving}
+                  >
+                    <option value="">Not set</option>
+                    {PROFILE_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {editedProfileType === "student" && (
+                  <label className="profile-editor-field">
+                    <span>College name</span>
+                    <input
+                      value={editedCollegeName}
+                      onChange={(event) =>
+                        setEditedCollegeName(event.target.value)
+                      }
+                      disabled={profileEditorSaving}
+                    />
+                  </label>
+                )}
+
+                {editedProfileType === "employee" && (
+                  <label className="profile-editor-field">
+                    <span>Organization</span>
+                    <input
+                      value={editedOrganizationName}
+                      onChange={(event) =>
+                        setEditedOrganizationName(event.target.value)
+                      }
+                      disabled={profileEditorSaving}
+                    />
+                  </label>
+                )}
+
+                <label className="profile-editor-field">
+                  <span>Bio</span>
+                  <textarea
+                    maxLength="280"
+                    value={editedBio}
+                    onChange={(event) => setEditedBio(event.target.value)}
+                    placeholder="Tell players what you are building toward."
+                    disabled={profileEditorSaving}
+                  />
+                  <small>{editedBio.length}/280</small>
+                </label>
+              </div>
+            </div>
+
+            <div className="profile-editor-actions">
+              <button
+                type="button"
+                onClick={closeProfileEditor}
+                disabled={profileEditorSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProfileSave}
+                disabled={profileEditorSaving}
+              >
+                <Save size={17} />
+                {profileEditorSaving ? "Saving..." : "Save profile"}
+              </button>
             </div>
           </section>
         </div>
