@@ -42,24 +42,48 @@ service-role key. Never expose that key to the React frontend.
 
 ```text
 backend/
-  http.js                         HTTP request helpers
-  problems.js                     Catalog, hidden-test judging, metrics
-  problem-schema.sql              Problems, tests, submissions, seed data
-  server.js                       REST API and Socket.IO server
-  supabase.js                     Backend Supabase client
-  supabase-schema.sql             Combined earlier feature schema
-  typhon.js                       Typhon execution client
-  social-schema.sql               Posts, follows, notifications
-  profile-activity-schema.sql     Streak activity
-  profile-pics-storage-schema.sql Storage bucket policies
-  time-capsule-schema.sql         Time Capsules
+  server.js                       Stable backend entrypoint
+  src/
+    server.js                     REST API and Socket.IO server
+    http.js                       HTTP request helpers
+    problems.js                   Catalog, hidden-test judging, metrics
+    powerups.js                   Powerup, attack, shield, and hunt economy
+    supabase.js                   Backend Supabase client
+    typhon.js                     Typhon execution client
+    userStats.js                  Profile problem metrics
+  schemas/
+    problem-schema.sql            Problems, tests, submissions, seed data
+    powerup-schema.sql            Powerups, attacks, hunt rewards
+    social-schema.sql             Posts, follows, notifications
+    supabase-schema.sql           Combined earlier feature schema
+    time-capsule-schema.sql       Time Capsules
+    profile-*.sql                 Profile activity, bio, gender, storage
 Typhon/
   runner/                         FastAPI execution service and sandboxes
 src/
-  features/problems/problemApi.js Problem and Typhon frontend API
-  features/careerLoadout/         Career metric calculations
-  pages/                          Application pages
-  styles/                         Page-specific styles
+  app/                            Router, auth shell, app listeners
+  assets/                         Images and static frontend assets
+  features/
+    auth/                         Login and signup pages
+    chat/                         Direct and group chat page
+    clans/                        Clan page and duel/capsule entry UI
+    home/                         Main dashboard
+    learning/                     Rabbit Hole and season pages
+    notifications/                Notification center
+    posts/                        Knowledge drop posts
+    powerups/                     Power Up Hunt pages and API client
+    problems/                     Practice arena, problem page, API client
+    profile/                      Profile and public profile pages
+    timeCapsules/                 Capsule detail and route wrappers
+    careerLoadout/                Career metric calculations
+  shared/
+    components/                   Sidebar, shell, theme, shared panels
+    data/                         Countries and learning-path data
+    services/                     Supabase and Socket.IO clients
+    utils/                        Toasts and notification helpers
+  styles/
+    app/                          Global app and theme styles
+    features/                     Feature-specific stylesheets
 ```
 
 ## Requirements
@@ -90,13 +114,13 @@ The `lusers` table must include at least:
 Run the feature SQL files in the Supabase SQL editor:
 
 ```text
-backend/supabase-schema.sql
-backend/social-schema.sql
-backend/problem-schema.sql
-backend/profile-pics-storage-schema.sql
+backend/schemas/supabase-schema.sql
+backend/schemas/social-schema.sql
+backend/schemas/problem-schema.sql
+backend/schemas/profile-pics-storage-schema.sql
 ```
 
-`backend/problem-schema.sql` creates and seeds:
+`backend/schemas/problem-schema.sql` creates and seeds:
 
 - `problems`
 - `problem_test_cases`
@@ -185,16 +209,17 @@ Open `http://localhost:3000`.
 | `npm run start:socket` | Start REST API, judge service, and Socket.IO |
 | `.\start.ps1` or `start.cmd` | Start the frontend, backend, and Typhon |
 | `.\start.ps1 -WithoutTyphon` | Start only the frontend and backend |
-
-For a one-click Windows launch, double-click `start.cmd`. The launcher skips
-services that are already using their expected ports, starts Docker Desktop,
-and builds missing Typhon sandbox images on the first launch. To provide backend-only secrets, copy
-`.env.backend.local.example` to `.env.backend.local`; this local file is ignored
-by Git and its values are inherited by the backend process.
 | `npm run typhon:install` | Install Typhon Python dependencies |
 | `npm run typhon:build` | Build Typhon Python and Java sandbox images |
 | `npm run typhon:start` | Start Typhon on port 8000 |
 | `npm run build` | Create a production frontend build |
+
+For a one-click Windows launch, double-click `start.cmd`. The launcher skips
+services that are already using their expected ports, starts Docker Desktop,
+and builds missing Typhon sandbox images on the first launch. To provide
+backend-only secrets, copy `.env.backend.local.example` to
+`.env.backend.local`; this local file is ignored by Git and its values are
+inherited by the backend process.
 
 ## Problem Judging
 
