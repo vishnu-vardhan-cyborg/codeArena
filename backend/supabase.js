@@ -8,7 +8,7 @@ const publicSupabaseKey =
   "sb_publishable_3fMcVJ1wOg_05kHz4rhBWg_LLgM-lne";
 
 const adminSupabaseKey =
-  process.env.SUPABASE_SECRET_KEY ||
+  ""||
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 const serverClientOptions = {
   auth: {
@@ -29,7 +29,7 @@ const supabase = createClient(
   serverClientOptions
 );
 const hasServiceRole = Boolean(adminSupabaseKey);
-const adminKeyType = process.env.SUPABASE_SECRET_KEY
+const adminKeyType = ""
   ? "secret"
   : process.env.SUPABASE_SERVICE_ROLE_KEY
     ? "legacy service_role"

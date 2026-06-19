@@ -95,9 +95,23 @@ const validateExecution = ({ language, sourceCode, stdin }) => {
 
 const executeTyphon = async ({ language, sourceCode, stdin = "" }) => {
   validateExecution({ language, sourceCode, stdin });
-
+  // {
+  //   "language": "string",
+  //   "code": "string",
+  //   "function_name": "string",
+  //   "test_cases": [
+  //     {
+  //       "args": [
+  //         "string"
+  //       ],
+  //       "expected_output": "string",
+  //       "hidden": false
+  //     }
+  //   ],
+  //   "stop_on_failure": false
+  // }
   return requestTyphon(
-    "/execute",
+    "/judge/function",
     {
       method: "POST",
       headers: {

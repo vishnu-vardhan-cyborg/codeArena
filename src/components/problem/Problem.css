@@ -1,0 +1,296 @@
+/* ===========================
+   Layout
+=========================== */
+
+.problem-page {
+    height: 100vh;
+    background: #0f0f0f;
+    color: #f4f4f5;
+  }
+  
+  .resize-handle {
+    background: #27272a;
+  }
+  
+  .resize-handle:hover {
+    background: #3f3f46;
+  }
+  
+  /* ===========================
+     Description Panel
+  =========================== */
+  
+  .problem-description {
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px;
+    background: #111111;
+  }
+  
+  .problem-title {
+    font-size: 28px;
+    font-weight: 700;
+  }
+  
+  .problem-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  
+  .problem-difficulty {
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+  }
+  
+  .problem-xp {
+    color: #facc15;
+  }
+  
+  .topic-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .topic-pill {
+    background: #27272a;
+    border: 1px solid #3f3f46;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
+  
+  .problem-section {
+    margin-top: 24px;
+  }
+  
+  .problem-section h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+  }
+  
+  .example-card {
+    margin-top: 12px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  
+  .example-card pre {
+    white-space: pre-wrap;
+    margin: 8px 0;
+  }
+  
+  /* ===========================
+     Editor
+  =========================== */
+  
+  .code-editor {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #111111;
+  }
+  
+  .editor-toolbar {
+    height: 56px;
+    border-bottom: 1px solid #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+  
+  .language-select {
+    background: #18181b;
+    color: white;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  
+  .editor-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .run-btn,
+  .submit-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  
+  .run-btn {
+    background: #27272a;
+    color: white;
+  }
+  
+  .run-btn:hover {
+    background: #3f3f46;
+  }
+  
+  .submit-btn {
+    background: #16a34a;
+    color: white;
+  }
+  
+  .submit-btn:hover {
+    background: #15803d;
+  }
+  
+  /* ===========================
+     Bottom Panel
+  =========================== */
+  
+  .bottom-panel {
+    height: 100%;
+    background: #111111;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .bottom-tabs {
+    display: flex;
+    border-bottom: 1px solid #27272a;
+  }
+  
+  .bottom-tab {
+    background: transparent;
+    color: #a1a1aa;
+    border: none;
+    padding: 12px 18px;
+    cursor: pointer;
+  }
+  
+  .bottom-tab.active {
+    color: white;
+    border-bottom: 2px solid #f59e0b;
+  }
+  
+  .bottom-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  
+  /* ===========================
+     Test Cases
+  =========================== */
+  
+  .testcase-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  
+  .testcase-btn {
+    background: #27272a;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .testcase-btn.active {
+    background: #f59e0b;
+    color: black;
+  }
+  
+  .testcase-box {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  
+  .testcase-box pre {
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  
+  /* ===========================
+     Results
+  =========================== */
+  
+  .result-header {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .verdict {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  
+  .verdict.accepted {
+    background: #166534;
+    color: #86efac;
+  }
+  
+  .verdict.failed {
+    background: #7f1d1d;
+    color: #fca5a5;
+  }
+  
+  .result-card {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  
+  .result-card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  
+  .result-pass {
+    color: #4ade80;
+  }
+  
+  .result-fail {
+    color: #f87171;
+  }
+  
+  /* ===========================
+     Console
+  =========================== */
+  
+  .console-output {
+    background: black;
+    color: #22c55e;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    min-height: 150px;
+  }
+  
+  /* ===========================
+     Scrollbar
+  =========================== */
+  
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #111111;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 999px;
+  }
