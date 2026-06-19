@@ -191,10 +191,29 @@ function LiveNotificationListener() {
   }, [location.pathname]);
 
   useEffect(() => {
+    const saveAttackNotification = (notification) => {
+      pushNotificationToast({
+        id: notification.id || `${notification.recipientId}-${Date.now()}`,
+        title: "Capsule attack",
+        body: notification.message || "You received an attack notification.",
+      });
+
+      const currentUser = JSON.parse(
+        localStorage.getItem("loggedInUser") || "null"
+      );
+      if (currentUser?.id) {
+        loadUnreadNotificationSnapshot(String(currentUser.id)).then((snapshot) =>
+          broadcastNotificationCount(snapshot.count)
+        );
+      }
+    };
+
     socket.on("xp:notification", saveXpNotification);
+    socket.on("attack:notification", saveAttackNotification);
 
     return () => {
       socket.off("xp:notification", saveXpNotification);
+      socket.off("attack:notification", saveAttackNotification);
     };
   }, []);
 
@@ -227,18 +246,28 @@ function NotificationToastHost() {
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
 
-  const openNotifications = useCallback(() => {
+  const handleToastClick = useCallback(() => {
+    const targetRoute =
+      toast?.dismissOnly || toast?.to === null
+        ? ""
+        : toast?.to || "/notifications";
+
     setToast(null);
-    navigate("/notifications");
-  }, [navigate]);
+
+    if (targetRoute) {
+      navigate(targetRoute);
+    }
+  }, [navigate, toast]);
 
   if (!toast) return null;
 
   return (
     <button
-      className="notification-toast"
+      className={`notification-toast ${
+        toast.tone ? `toast-${toast.tone}` : ""
+      }`}
       type="button"
-      onClick={openNotifications}
+      onClick={handleToastClick}
     >
       <strong>{toast.title || "Notification"}</strong>
       <span>{toast.body}</span>

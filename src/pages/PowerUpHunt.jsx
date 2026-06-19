@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
+  ShoppingBag,
   RotateCcw,
   Zap,
 } from "lucide-react";
 import { supabase } from "../supabase";
+import {
+  applyHuntReward,
+  loadPowerupInventory,
+} from "../features/powerups/powerupApi";
+import { showAppToast } from "../utils/appToast";
 import "../styles/PowerUpHunt.css";
 
 const VIEW_WIDTH = 19;
@@ -16,35 +19,41 @@ const CENTER_X = Math.floor(VIEW_WIDTH / 2);
 const CENTER_Y = Math.floor(VIEW_HEIGHT / 2);
 const START_POSITION = { x: 0, y: 0 };
 const SHARE_AMOUNT = 25;
+const PROBLEM_LOCKED_POWERUPS = new Set(["settle_the_bet", "steal"]);
 
 const POWER_UPS = {
-  freeze: {
-    name: "Freeze Challenge",
-    shortName: "Freeze",
-    description: "Challenge a player to solve a hard problem or lose XP.",
+  settle_the_bet: {
+    name: "Settle the Bet",
+    shortName: "Bet",
+    description: "Attack: target must solve a challenge in 24 hours or lose XP.",
+  },
+  steal: {
+    name: "Steal XP",
+    shortName: "Steal",
+    description: "Attack: steal a small amount of XP from another player.",
   },
   shield: {
-    name: "Trap Shield",
+    name: "Shield",
     shortName: "Shield",
-    description: "Blocks one XP trap while roaming.",
+    description: "Defense: blocks one incoming attack.",
   },
-  surge: {
-    name: "XP Surge",
-    shortName: "Surge",
-    description: "Future boost for random XP gains.",
+  uno_reverse: {
+    name: "Uno Reverse",
+    shortName: "Reverse",
+    description: "Defense: reverses an incoming attack.",
   },
-  warp: {
-    name: "Warp Key",
-    shortName: "Warp",
-    description: "Future fast-travel key for deep hunt zones.",
+  streak_recover: {
+    name: "Streak Recover",
+    shortName: "Recover",
+    description: "Extremely rare: recover a lost streak.",
   },
 };
 
 const SHOP_POWER_UPS = [
-  { id: "freeze", cost: 180 },
-  { id: "shield", cost: 90 },
-  { id: "surge", cost: 120 },
-  { id: "warp", cost: 160 },
+  { id: "settle_the_bet", cost: 220 },
+  { id: "steal", cost: 160 },
+  { id: "shield", cost: 180 },
+  { id: "uno_reverse", cost: 260 },
 ];
 
 const CHARACTERS = [
@@ -53,18 +62,45 @@ const CHARACTERS = [
   { id: "onyx", name: "Onyx", cost: 420, perk: "Trap resistance" },
 ];
 
-const RANDOM_PLAYERS = [
-  "runtime rebel",
-  "binary monk",
-  "heap walker",
-  "stack runner",
-  "syntax ghost",
-];
 const INITIAL_INVENTORY = {
-  freeze: 0,
+  settle_the_bet: 0,
+  steal: 0,
   shield: 0,
-  surge: 0,
-  warp: 0,
+  uno_reverse: 0,
+  streak_recover: 0,
+};
+
+const normalizePowerupKey = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (normalized === "settle_bet") return "settle_the_bet";
+  if (normalized === "steal_xp" || normalized === "stealxp") return "steal";
+  if (normalized === "uno") return "uno_reverse";
+  return normalized;
+};
+
+const normalizeInventory = (inventory = {}, powerups = []) => {
+  const nextInventory = { ...INITIAL_INVENTORY, ...inventory };
+
+  powerups.forEach((powerup) => {
+    const rawKey = String(powerup.powerup_name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const key = normalizePowerupKey(powerup.powerup_name);
+
+    if (key !== rawKey || nextInventory[key] === undefined) {
+      nextInventory[key] =
+        Number(nextInventory[key] || 0) + Number(powerup.quantity || 0);
+    }
+  });
+
+  return nextInventory;
 };
 
 const directions = {
@@ -79,6 +115,11 @@ const directions = {
 };
 
 const positionKey = (position) => `${position.x}:${position.y}`;
+const chestNeedsProblem = (powerupName) => PROBLEM_LOCKED_POWERUPS.has(powerupName);
+const wait = (milliseconds) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 
 const hashCoordinate = (x, y, salt = 0) => {
   let value = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ salt;
@@ -86,52 +127,99 @@ const hashCoordinate = (x, y, salt = 0) => {
   return (value ^ (value >>> 16)) >>> 0;
 };
 
+const pickPowerupType = (roll) => {
+  if (roll % 5000 === 0) return "streak_recover";
+
+  const bucket = roll % 100;
+  if (bucket < 36) return "shield";
+  if (bucket < 66) return "settle_the_bet";
+  if (bucket < 86) return "steal";
+  return "uno_reverse";
+};
+
 const getGeneratedCell = (x, y, openedCells) => {
   const key = `${x}:${y}`;
-  const terrain = hashCoordinate(x, y, 9) % 5;
+  const terrain = hashCoordinate(x, y, 9) % 6;
+  const treeRoll = hashCoordinate(x, y, 77) % 100;
 
   if ((x === 0 && y === 0) || openedCells.has(key)) {
-    return { terrain, encounter: null };
+    return { terrain, tree: treeRoll < 42, encounter: null };
   }
 
-  const roll = hashCoordinate(x, y, 31) % 1000;
+  const roll = hashCoordinate(x, y, 31) % 10000;
   const detailRoll = hashCoordinate(x, y, 53);
 
-  if (roll < 44) {
+  if (roll < 200) {
     return {
       terrain,
+      tree: false,
+      encounter: {
+        kind: "xp",
+        amount: 1,
+      },
+    };
+  }
+
+  if (roll < 270) {
+    return {
+      terrain,
+      tree: false,
+      encounter: {
+        kind: "xp",
+        amount: 2,
+      },
+    };
+  }
+
+  if (roll < 285) {
+    return {
+      terrain,
+      tree: false,
+      encounter: {
+        kind: "xp",
+        amount: 5,
+      },
+    };
+  }
+
+  if (roll < 310) {
+    return {
+      terrain,
+      tree: false,
       encounter: {
         kind: "chest",
-        reward: 20 + (detailRoll % 9) * 10,
+        powerupType: pickPowerupType(detailRoll),
       },
     };
   }
 
-  if (roll < 73) {
-    const types = Object.keys(POWER_UPS);
+  if (roll < 318) {
     return {
       terrain,
+      tree: false,
       encounter: {
         kind: "powerup",
-        type: types[detailRoll % types.length],
+        type: pickPowerupType(detailRoll),
       },
     };
   }
 
-  if (roll < 96) {
+  if (roll < 363) {
     return {
       terrain,
+      tree: false,
       encounter: {
         kind: "trap",
-        penalty: 20 + (detailRoll % 5) * 15,
+        penalty: [1, 2, 3][detailRoll % 3],
       },
     };
   }
 
-  return { terrain, encounter: null };
+  return { terrain, tree: treeRoll < 48, encounter: null };
 };
 
 export default function PowerUpHunt() {
+  const navigate = useNavigate();
   const currentUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("loggedInUser") || "null");
@@ -153,14 +241,43 @@ export default function PowerUpHunt() {
     {
       id: "start",
       tone: "neutral",
-      message: "Infinite hunt opened. Move in any direction to find chests.",
+      message: "Infinite hunt opened. Search for XP, hidden chests, traps, and rare powerups.",
     },
   ]);
   const [friends, setFriends] = useState([]);
+  const [lockedChest, setLockedChest] = useState(null);
+  const [chestLoading, setChestLoading] = useState(false);
+  const [chestAnimationStage, setChestAnimationStage] = useState("");
+  const [revealedPowerup, setRevealedPowerup] = useState("");
+  const [rewardBusy, setRewardBusy] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(false);
 
   const playerRef = useRef(START_POSITION);
   const openedCellsRef = useRef(new Set());
   const inventoryRef = useRef({ ...INITIAL_INVENTORY });
+  const lockedChestRef = useRef(null);
+  const unlockingChestRef = useRef(false);
+  const lockedChestKey = currentUser?.id
+    ? `codeArenaLockedChest:${currentUser.id}`
+    : "";
+  const chestRewardKey = currentUser?.id
+    ? `codeArenaChestReward:${currentUser.id}`
+    : "";
+
+  const persistLockedChest = useCallback(
+    (chest) => {
+      setLockedChest(chest);
+
+      if (!lockedChestKey) return;
+
+      if (chest) {
+        localStorage.setItem(lockedChestKey, JSON.stringify(chest));
+      } else {
+        localStorage.removeItem(lockedChestKey);
+      }
+    },
+    [lockedChestKey]
+  );
 
   const addLog = useCallback((message, tone = "neutral") => {
     setEventLog((current) => [
@@ -179,8 +296,101 @@ export default function PowerUpHunt() {
     setSessionDelta((current) => current + amount);
   }, []);
 
+  const syncCurrentUserXp = useCallback(
+    (totalXp) => {
+      if (!currentUser || totalXp === null || totalXp === undefined) return;
+
+      const nextUser = { ...currentUser, xp: totalXp };
+      localStorage.setItem("loggedInUser", JSON.stringify(nextUser));
+      setWalletXp(Number(totalXp || 0));
+    },
+    [currentUser]
+  );
+
+  const applyServerHuntReward = useCallback(
+    async ({ rewardKind, amount = 0, powerupName = null, metadata = {} }) => {
+      if (!currentUser?.id) {
+        changeWallet(amount);
+        return null;
+      }
+
+      setRewardBusy(true);
+
+      try {
+        const result = await applyHuntReward({
+          userId: currentUser.id,
+          rewardKind,
+          amount,
+          powerupName,
+          metadata,
+        });
+
+        if (result.totalXp !== null && result.totalXp !== undefined) {
+          syncCurrentUserXp(result.totalXp);
+          setSessionDelta((current) => current + amount);
+        }
+
+        if (result.inventory) {
+          inventoryRef.current = { ...INITIAL_INVENTORY, ...result.inventory };
+          setInventory(inventoryRef.current);
+        }
+
+        return result;
+      } catch (error) {
+        addLog(error.message, "loss");
+        return null;
+      } finally {
+        setRewardBusy(false);
+      }
+    },
+    [addLog, changeWallet, currentUser?.id, syncCurrentUserXp]
+  );
+
+  const selectChestProblem = useCallback(
+    async (position) => {
+      const { data: problemRows, error: problemError } = await supabase
+        .from("problems")
+        .select("id")
+        .limit(120);
+
+      if (problemError || !problemRows?.length) {
+        addLog("No problem catalog available for this chest.", "loss");
+        showAppToast("No problem catalog available for this chest.", "error");
+        return "";
+      }
+
+      const problemIds = problemRows.map((problem) => problem.id).filter(Boolean);
+      let solvedProblemIds = new Set();
+
+      if (currentUser?.id && problemIds.length > 0) {
+        const { data: solvedRows } = await supabase
+          .from("user_problem_progress")
+          .select("problem_id")
+          .eq("user_id", String(currentUser.id))
+          .in("problem_id", problemIds)
+          .not("solved_at", "is", null);
+
+        solvedProblemIds = new Set(
+          (solvedRows || []).map((row) => String(row.problem_id))
+        );
+      }
+
+      const unsolvedProblemIds = problemIds.filter(
+        (problemId) => !solvedProblemIds.has(String(problemId))
+      );
+      const candidateIds = unsolvedProblemIds.length
+        ? unsolvedProblemIds
+        : problemIds;
+
+      return candidateIds[
+        hashCoordinate(position.x, position.y, steps + 701) % candidateIds.length
+      ];
+    },
+    [addLog, currentUser?.id, steps]
+  );
+
   const triggerEncounter = useCallback(
-    (position) => {
+    async (position) => {
       const key = positionKey(position);
       if (openedCellsRef.current.has(key)) return;
 
@@ -194,46 +404,145 @@ export default function PowerUpHunt() {
 
       markCellOpened(key);
 
+      if (encounter.kind === "xp") {
+        applyServerHuntReward({
+          rewardKind: "xp",
+          amount: encounter.amount,
+          metadata: { position },
+        });
+        addLog(`Floating XP collected: +${encounter.amount} XP`, "gain");
+        return;
+      }
+
       if (encounter.kind === "chest") {
-        changeWallet(encounter.reward);
-        addLog(`Chest opened: +${encounter.reward} XP`, "gain");
+        if (lockedChestRef.current) {
+          showAppToast("Chest found!", "success", "Chest found");
+          addLog(
+            "Another chest appeared. Open the current locked chest first.",
+            "power"
+          );
+          return;
+        }
+
+        const chest = {
+          powerupType: encounter.powerupType,
+          position,
+          createdAt: new Date().toISOString(),
+          problemId: null,
+          status: "found",
+        };
+
+        persistLockedChest(chest);
+        showAppToast("Chest found!", "success", "Chest found");
+        addLog("Chest found. Open it from the side panel.", "power");
         return;
       }
 
       if (encounter.kind === "powerup") {
-        setInventory((current) => {
-          const nextInventory = {
-            ...current,
-            [encounter.type]: current[encounter.type] + 1,
-          };
-          inventoryRef.current = nextInventory;
-          return nextInventory;
+        applyServerHuntReward({
+          rewardKind: "powerup",
+          powerupName: encounter.type,
+          metadata: { position },
         });
         addLog(`${POWER_UPS[encounter.type].name} collected`, "power");
         return;
       }
 
       if (encounter.kind === "trap") {
-        if (inventoryRef.current.shield > 0) {
-          const nextInventory = {
-            ...inventoryRef.current,
-            shield: inventoryRef.current.shield - 1,
-          };
-          inventoryRef.current = nextInventory;
-          setInventory(nextInventory);
-          addLog("Trap blocked by shield", "power");
-        } else {
-          changeWallet(-encounter.penalty);
-          addLog(`Trap triggered: -${encounter.penalty} XP`, "loss");
-        }
+        applyServerHuntReward({
+          rewardKind: "trap",
+          amount: -encounter.penalty,
+          metadata: { position },
+        });
+        addLog(`Trap triggered: -${encounter.penalty} XP`, "loss");
       }
     },
-    [addLog, changeWallet, markCellOpened]
+    [
+      addLog,
+      applyServerHuntReward,
+      markCellOpened,
+      persistLockedChest,
+    ]
   );
 
   useEffect(() => {
     inventoryRef.current = inventory;
   }, [inventory]);
+
+  useEffect(() => {
+    lockedChestRef.current = lockedChest;
+  }, [lockedChest]);
+
+  useEffect(() => {
+    if (!currentUser?.id) return undefined;
+
+    let mounted = true;
+
+    loadPowerupInventory(currentUser.id)
+      .then((result) => {
+        if (!mounted) return;
+        const nextInventory = normalizeInventory(
+          result.inventory || {},
+          result.powerups || []
+        );
+        inventoryRef.current = nextInventory;
+        setInventory(nextInventory);
+      })
+      .catch((error) => addLog(error.message, "loss"));
+
+    return () => {
+      mounted = false;
+    };
+  }, [addLog, currentUser?.id]);
+
+  useEffect(() => {
+    if (!lockedChestKey) return;
+
+    try {
+      const storedChest = JSON.parse(localStorage.getItem(lockedChestKey) || "null");
+      if (storedChest?.problemId || storedChest?.powerupType) {
+        const normalizedChest = {
+          ...storedChest,
+          powerupType:
+            storedChest.powerupType ||
+            pickPowerupType(
+              hashCoordinate(
+                storedChest.position?.x || 0,
+                storedChest.position?.y || 0,
+                97
+              )
+            ),
+        };
+        setLockedChest(normalizedChest);
+        localStorage.setItem(lockedChestKey, JSON.stringify(normalizedChest));
+      } else if (storedChest) {
+        localStorage.removeItem(lockedChestKey);
+      }
+    } catch {
+      localStorage.removeItem(lockedChestKey);
+    }
+  }, [lockedChestKey]);
+
+  useEffect(() => {
+    if (!chestRewardKey) return;
+
+    try {
+      const reward = JSON.parse(localStorage.getItem(chestRewardKey) || "null");
+      if (!reward?.powerupName) return;
+
+      const powerupLabel =
+        reward.label || POWER_UPS[reward.powerupName]?.name || "Powerup";
+      showAppToast(
+        `${powerupLabel} added to inventory!`,
+        "success",
+        "Powerup added"
+      );
+      addLog(`${powerupLabel} added to inventory`, "power");
+      localStorage.removeItem(chestRewardKey);
+    } catch {
+      localStorage.removeItem(chestRewardKey);
+    }
+  }, [addLog, chestRewardKey]);
 
   const movePlayer = useCallback(
     (direction, distance = 1) => {
@@ -338,45 +647,29 @@ export default function PowerUpHunt() {
     return nextTiles;
   }, [openedCells, player]);
 
-  const resetGame = () => {
-    const emptySet = new Set();
-    openedCellsRef.current = emptySet;
+  const resetPosition = () => {
     playerRef.current = START_POSITION;
-    setOpenedCells(emptySet);
     setPlayer(START_POSITION);
-    setWalletXp(Number(currentUser?.xp || 0));
-    setSessionDelta(0);
-    setSteps(0);
-    inventoryRef.current = { ...INITIAL_INVENTORY };
-    setInventory({ ...INITIAL_INVENTORY });
-    setOwnedCharacters(new Set(["nova"]));
-    setSelectedCharacter("nova");
     setLastDirection({ x: 1, y: 0 });
-    setEventLog([
-      {
-        id: "start",
-        tone: "neutral",
-        message: "Infinite hunt opened. Move in any direction to find chests.",
-      },
-    ]);
+    addLog("Position reset to 0, 0.", "neutral");
   };
 
-  const buyPowerUp = (item) => {
+  const buyPowerUp = async (item) => {
     if (walletXp < item.cost) {
       addLog(`Need ${item.cost} XP to buy ${POWER_UPS[item.id].shortName}`, "loss");
       return;
     }
 
-    changeWallet(-item.cost);
-    setInventory((current) => {
-      const nextInventory = {
-        ...current,
-        [item.id]: current[item.id] + 1,
-      };
-      inventoryRef.current = nextInventory;
-      return nextInventory;
+    const result = await applyServerHuntReward({
+      rewardKind: "purchase",
+      amount: -item.cost,
+      powerupName: item.id,
+      metadata: { source: "shop" },
     });
-    addLog(`Bought ${POWER_UPS[item.id].name}`, "power");
+
+    if (result) {
+      addLog(`Bought ${POWER_UPS[item.id].name}`, "power");
+    }
   };
 
   const buyOrEquipCharacter = (character) => {
@@ -397,37 +690,158 @@ export default function PowerUpHunt() {
     addLog(`${character.name} unlocked and equipped`, "power");
   };
 
-  const shareXp = (mode) => {
+  const shareXp = () => {
     if (walletXp < SHARE_AMOUNT) {
       addLog(`Need ${SHARE_AMOUNT} XP to share`, "loss");
       return;
     }
 
     const friendTarget = friends[0];
-    const randomTarget =
-      RANDOM_PLAYERS[hashCoordinate(player.x, player.y, steps) % RANDOM_PLAYERS.length];
-    const target =
-      mode === "friend" && friendTarget
-        ? friendTarget.uusername || friendTarget.username
-        : randomTarget;
+    const target = friendTarget
+      ? friendTarget.uusername || friendTarget.username
+      : "a friend";
 
     changeWallet(-SHARE_AMOUNT);
     addLog(`Shared ${SHARE_AMOUNT} XP with ${target}`, "power");
   };
 
-  const useFreezeChallenge = () => {
-    if (inventory.freeze <= 0) {
-      addLog("No Freeze Challenge token available", "loss");
+  const runChestUnlockSequence = useCallback(
+    async (powerupName, options = {}) => {
+      if (!powerupName || unlockingChestRef.current) return false;
+
+      const powerupLabel = POWER_UPS[powerupName]?.name || "Powerup";
+      unlockingChestRef.current = true;
+      setRevealedPowerup("");
+
+      try {
+        if (options.fromProblem) {
+          showAppToast("Correct answer!", "success", "Correct answer");
+          setChestAnimationStage("correct");
+          await wait(650);
+          showAppToast("Key found!", "success", "Key found");
+          addLog("Key found!", "power");
+          setChestAnimationStage("key");
+          await wait(750);
+          setChestAnimationStage("move");
+          await wait(900);
+        }
+
+        setChestAnimationStage("open");
+        await wait(650);
+
+        const result = await applyServerHuntReward({
+          rewardKind: "powerup",
+          powerupName,
+          metadata: {
+            source: "chest",
+            problemId: lockedChest?.problemId || null,
+            position: lockedChest?.position || null,
+            unlockedByProblem: Boolean(options.fromProblem),
+          },
+        });
+
+        if (!result) {
+          setChestAnimationStage("");
+          showAppToast(
+            "Powerup could not be added. Please try again.",
+            "error"
+          );
+          return false;
+        }
+
+        setRevealedPowerup(powerupName);
+        setChestAnimationStage("reveal");
+        await wait(800);
+        addLog(`${powerupLabel} added to inventory`, "power");
+        showAppToast(
+          `${powerupLabel} added to inventory!`,
+          "success",
+          "Powerup added"
+        );
+        setChestAnimationStage("complete");
+        await wait(500);
+        setChestAnimationStage("");
+        setRevealedPowerup("");
+        persistLockedChest(null);
+        return true;
+      } finally {
+        unlockingChestRef.current = false;
+      }
+    },
+    [
+      addLog,
+      applyServerHuntReward,
+      lockedChest?.position,
+      lockedChest?.problemId,
+      persistLockedChest,
+    ]
+  );
+
+  const loadChestChallenge = useCallback(async () => {
+    if (!lockedChest || !currentUser?.id) return;
+    if (!chestNeedsProblem(lockedChest.powerupType)) return;
+
+    setChestLoading(true);
+
+    try {
+      const problemId =
+        lockedChest.problemId || (await selectChestProblem(lockedChest.position));
+
+      if (!problemId) {
+        showAppToast("No challenge problem is available right now.", "error");
+        return;
+      }
+
+      const nextChest = {
+        ...lockedChest,
+        problemId,
+        status: "challenge",
+      };
+      persistLockedChest(nextChest);
+      navigate(`/problems/${problemId}`);
+    } catch (error) {
+      showAppToast(error.message, "error");
+    } finally {
+      setChestLoading(false);
+    }
+  }, [
+    currentUser?.id,
+    lockedChest,
+    navigate,
+    persistLockedChest,
+    selectChestProblem,
+  ]);
+
+  const handleOpenChest = useCallback(async () => {
+    if (!lockedChest || rewardBusy || chestLoading || chestAnimationStage) {
       return;
     }
 
-    setInventory((current) => {
-      const nextInventory = { ...current, freeze: current.freeze - 1 };
-      inventoryRef.current = nextInventory;
-      return nextInventory;
-    });
-    addLog("Freeze Challenge armed: target must solve a hard problem.", "power");
-  };
+    if (chestNeedsProblem(lockedChest.powerupType)) {
+      await loadChestChallenge();
+      return;
+    }
+
+    await runChestUnlockSequence(lockedChest.powerupType);
+  }, [
+    chestAnimationStage,
+    chestLoading,
+    loadChestChallenge,
+    lockedChest,
+    rewardBusy,
+    runChestUnlockSequence,
+  ]);
+
+  useEffect(() => {
+    if (
+      lockedChest &&
+      !chestNeedsProblem(lockedChest.powerupType) &&
+      !chestAnimationStage &&
+      !unlockingChestRef.current
+    ) {
+      runChestUnlockSequence(lockedChest.powerupType);
+    }
+  }, [chestAnimationStage, lockedChest, runChestUnlockSequence]);
 
   const selectedCharacterData =
     CHARACTERS.find((character) => character.id === selectedCharacter) ||
@@ -440,33 +854,40 @@ export default function PowerUpHunt() {
           <span>XP economy prototype</span>
           <h1>Power Up Hunt</h1>
           <p>
-            Roam an infinite forest, open chests, collect abilities, and dodge XP
-            traps.
+            Roam a dense forest, collect floating XP, unlock hidden chests with
+            solved problems, find rare powerups, and dodge XP traps.
           </p>
         </div>
-        <button type="button" onClick={resetGame}>
-          <RotateCcw size={18} />
-          Reset
-        </button>
+        <div className="power-hunt-actions">
+          <button
+            type="button"
+            className="power-shop-icon-button"
+            onClick={() => setIsShopOpen(true)}
+            aria-label="Open shop"
+          >
+            <ShoppingBag size={18} />
+            Shop
+          </button>
+          <button type="button" onClick={resetPosition}>
+            <RotateCcw size={18} />
+            Reset position
+          </button>
+        </div>
       </header>
 
       <main className="power-hunt-layout">
         <section className="power-game-panel">
           <div className="power-game-hud">
-            <div>
-              <span>Wallet</span>
+            <div aria-label="Wallet XP" title="Wallet XP">
               <strong>{walletXp} XP</strong>
             </div>
-            <div>
-              <span>Session</span>
+            <div aria-label="Session XP change" title="Session XP change">
               <strong>{sessionDelta >= 0 ? "+" : ""}{sessionDelta}</strong>
             </div>
-            <div>
-              <span>Position</span>
+            <div aria-label="Current position" title="Current position">
               <strong>{player.x}, {player.y}</strong>
             </div>
-            <div>
-              <span>Steps</span>
+            <div aria-label="Steps moved" title="Steps moved">
               <strong>{steps}</strong>
             </div>
           </div>
@@ -485,20 +906,23 @@ export default function PowerUpHunt() {
             {tiles.map((tile) => {
               const hasPlayer = tile.column === CENTER_X && tile.row === CENTER_Y;
               const encounter = tile.encounter;
+              const visibleEncounter =
+                encounter?.kind === "trap" || encounter?.kind === "chest"
+                  ? null
+                  : encounter;
 
               return (
                 <div
                   className={`forest-tile terrain-${tile.terrain} ${
-                    encounter ? `encounter-${encounter.kind}` : ""
+                    visibleEncounter ? `encounter-${visibleEncounter.kind}` : ""
                   }`}
                   key={tile.key}
                   title={`${tile.worldX}, ${tile.worldY}`}
                 >
-                  {encounter?.kind === "chest" && (
-                    <span className="pixel-chest" title="XP chest" />
-                  )}
-                  {encounter?.kind === "trap" && (
-                    <span className="pixel-trap" title="XP trap" />
+                  {encounter?.kind === "xp" && (
+                    <span className={`floating-xp xp-${encounter.amount}`}>
+                      +{encounter.amount}
+                    </span>
                   )}
                   {encounter?.kind === "powerup" && (
                     <span
@@ -516,57 +940,22 @@ export default function PowerUpHunt() {
                       <em />
                     </span>
                   )}
+                  {!hasPlayer && !encounter && tile.tree && (
+                    <span className="pixel-tree" title="Forest tree" />
+                  )}
                 </div>
               );
             })}
           </div>
 
-          <div className="touch-game-controls" aria-label="Game controls">
-            <button
-              type="button"
-              aria-label="Move up"
-              onClick={() => movePlayer(directions.ArrowUp)}
-            >
-              <ArrowUp size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Move left"
-              onClick={() => movePlayer(directions.ArrowLeft)}
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <button
-              className="dash-control"
-              type="button"
-              aria-label="Dash"
-              onClick={() => movePlayer(lastDirection, 3)}
-            >
-              Z
-            </button>
-            <button
-              type="button"
-              aria-label="Move right"
-              onClick={() => movePlayer(directions.ArrowRight)}
-            >
-              <ArrowRight size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Move down"
-              onClick={() => movePlayer(directions.ArrowDown)}
-            >
-              <ArrowDown size={18} />
-            </button>
-          </div>
         </section>
 
         <aside className="power-game-sidebar">
           <span className="game-eyebrow">Active scout</span>
           <h2>{selectedCharacterData.name}</h2>
           <p>
-            XP is the hunt currency. Chest gains, trap losses, shop purchases,
-            and sharing are session-only until the backend economy is locked.
+            XP is the hunt currency. Forest gains, traps, chests, and powerup
+            purchases are validated by the backend economy.
           </p>
 
           <div className="scout-preview">
@@ -585,46 +974,62 @@ export default function PowerUpHunt() {
                 <small>{inventory[id]} owned</small>
               </div>
             ))}
-            <button type="button" onClick={useFreezeChallenge}>
-              Arm Freeze Challenge
-            </button>
           </div>
 
-          <div className="shop-panel">
-            <span>Power shop</span>
-            {SHOP_POWER_UPS.map((item) => (
-              <button type="button" key={item.id} onClick={() => buyPowerUp(item)}>
-                <strong>{POWER_UPS[item.id].shortName}</strong>
-                <small>{item.cost} XP</small>
+          {lockedChest && (
+            <div className="locked-chest-panel">
+              <span>Locked chest</span>
+              <strong>
+                {POWER_UPS[lockedChest.powerupType]?.name || "Powerup"} sealed
+              </strong>
+              <small>
+                {chestNeedsProblem(lockedChest.powerupType)
+                  ? "Load the challenge problem to unlock this chest."
+                  : "Open it to reveal the powerup immediately."}
+              </small>
+
+              <div
+                className={`chest-unlock-animation ${
+                  chestAnimationStage ? `stage-${chestAnimationStage}` : ""
+                }`}
+                aria-label="Chest unlock animation"
+              >
+                <span className="chest-animation-key" />
+                <span className="chest-animation-chest" />
+                {(revealedPowerup || chestAnimationStage === "complete") && (
+                  <span
+                    className={`pixel-power-up chest-reveal-power ${
+                      revealedPowerup || lockedChest.powerupType
+                    }`}
+                    title={
+                      POWER_UPS[revealedPowerup || lockedChest.powerupType]?.name
+                    }
+                  />
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenChest}
+                disabled={
+                  rewardBusy ||
+                  chestLoading ||
+                  Boolean(chestAnimationStage)
+                }
+              >
+                {chestNeedsProblem(lockedChest.powerupType)
+                  ? chestLoading
+                    ? "Loading..."
+                    : "Load challenge"
+                  : "Open chest"}
               </button>
-            ))}
-          </div>
-
-          <div className="character-shop-panel">
-            <span>Characters</span>
-            {CHARACTERS.map((character) => {
-              const owned = ownedCharacters.has(character.id);
-              return (
-                <button
-                  type="button"
-                  className={selectedCharacter === character.id ? "active" : ""}
-                  key={character.id}
-                  onClick={() => buyOrEquipCharacter(character)}
-                >
-                  <strong>{character.name}</strong>
-                  <small>{owned ? character.perk : `${character.cost} XP`}</small>
-                </button>
-              );
-            })}
-          </div>
+            </div>
+          )}
 
           <div className="social-xp-panel">
             <span>XP sharing</span>
-            <button type="button" onClick={() => shareXp("friend")}>
+            <button type="button" onClick={shareXp}>
               Share {SHARE_AMOUNT} XP with friend
-            </button>
-            <button type="button" onClick={() => shareXp("random")}>
-              Share {SHARE_AMOUNT} XP with random player
             </button>
           </div>
 
@@ -638,14 +1043,70 @@ export default function PowerUpHunt() {
             ))}
           </div>
 
-          <div className="game-control-list">
-            <span>Controls</span>
-            <div><kbd>WASD</kbd><strong>Move</strong></div>
-            <div><kbd>Arrows</kbd><strong>Move</strong></div>
-            <div><kbd>Z</kbd><strong>Dash 3 tiles</strong></div>
-          </div>
         </aside>
       </main>
+
+      {isShopOpen && (
+        <div className="power-shop-modal-backdrop" role="presentation">
+          <div className="power-shop-modal" role="dialog" aria-modal="true">
+            <div className="power-shop-modal-header">
+              <div>
+                <span>XP market</span>
+                <h2>Shop</h2>
+                <p>Buy powerups or unlock playable scouts with XP.</p>
+              </div>
+              <button
+                type="button"
+                className="power-shop-close"
+                onClick={() => setIsShopOpen(false)}
+                aria-label="Close shop"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="power-shop-wallet">
+              <span>Wallet</span>
+              <strong>{walletXp} XP</strong>
+            </div>
+
+            <div className="power-shop-grid">
+              <div className="shop-panel">
+                <span>Powerups</span>
+                {SHOP_POWER_UPS.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => buyPowerUp(item)}
+                    disabled={rewardBusy}
+                  >
+                    <strong>{POWER_UPS[item.id].shortName}</strong>
+                    <small>{item.cost} XP · {inventory[item.id]} owned</small>
+                  </button>
+                ))}
+              </div>
+
+              <div className="character-shop-panel">
+                <span>Characters</span>
+                {CHARACTERS.map((character) => {
+                  const owned = ownedCharacters.has(character.id);
+                  return (
+                    <button
+                      type="button"
+                      className={selectedCharacter === character.id ? "active" : ""}
+                      key={character.id}
+                      onClick={() => buyOrEquipCharacter(character)}
+                    >
+                      <strong>{character.name}</strong>
+                      <small>{owned ? character.perk : `${character.cost} XP`}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

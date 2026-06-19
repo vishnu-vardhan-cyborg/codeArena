@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
   CheckCircle2,
@@ -28,6 +28,11 @@ import {
   saveProblemNote,
   submitProblem,
 } from "../features/problems/problemApi";
+import {
+  applyHuntReward,
+  completeCapsuleAttackDefense,
+} from "../features/powerups/powerupApi";
+import { showAppToast } from "../utils/appToast";
 
 const studyTabs = [
   { id: "notes", label: "Notes", icon: NotebookPen },
@@ -35,6 +40,14 @@ const studyTabs = [
   { id: "last", label: "Last submission", icon: FileText },
   { id: "editorial", label: "Editorial", icon: BookOpen },
 ];
+
+const HUNT_POWERUP_LABELS = {
+  settle_the_bet: "Settle the Bet",
+  steal: "Steal XP",
+  shield: "Shield",
+  uno_reverse: "Uno Reverse",
+  streak_recover: "Streak Recover",
+};
 
 const formatExecutionOutput = (result) => {
   const output =
@@ -70,6 +83,10 @@ const formatSolveTimer = (seconds) => {
 
 export default function Problem() {
   const { problemId } = useParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const attackId = searchParams.get("attackId");
+  const attackCapsuleId = searchParams.get("capsuleId");
   const currentUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("loggedInUser") || "null");
@@ -266,6 +283,87 @@ export default function Problem() {
           "loggedInUser",
           JSON.stringify({ ...currentUser, xp: result.totalXp })
         );
+      }
+
+      if (result.status === "Accepted" && currentUser?.id && attackId) {
+        try {
+          const defenseResult = await completeCapsuleAttackDefense({
+            userId: currentUser.id,
+            attackId,
+            problemId,
+          });
+
+          showAppToast(
+            defenseResult.message || "Defense completed. Attack cleared.",
+            "success"
+          );
+
+          if (attackCapsuleId) {
+            window.setTimeout(() => {
+              navigate(`/time-capsules/${attackCapsuleId}`);
+            }, 900);
+          }
+        } catch (error) {
+          showAppToast(error.message, "error");
+        }
+      }
+
+      if (result.status === "Accepted" && currentUser?.id) {
+        const chestKey = `codeArenaLockedChest:${currentUser.id}`;
+        const rewardKey = `codeArenaChestReward:${currentUser.id}`;
+
+        try {
+          const pendingChest = JSON.parse(
+            localStorage.getItem(chestKey) || "null"
+          );
+
+          if (
+            pendingChest?.problemId &&
+            pendingChest?.powerupType &&
+            String(pendingChest.problemId) === String(problemId)
+          ) {
+            const rewardResult = await applyHuntReward({
+              userId: currentUser.id,
+              rewardKind: "powerup",
+              powerupName: pendingChest.powerupType,
+              metadata: {
+                source: "chest",
+                problemId,
+                position: pendingChest.position || null,
+                unlockedByProblem: true,
+              },
+            });
+
+            if (!rewardResult?.inventory) {
+              throw new Error("Powerup could not be added. Please try again.");
+            }
+
+            const powerupLabel =
+              HUNT_POWERUP_LABELS[pendingChest.powerupType] || "Powerup";
+            localStorage.removeItem(chestKey);
+            localStorage.setItem(
+              rewardKey,
+              JSON.stringify({
+                powerupName: pendingChest.powerupType,
+                label: powerupLabel,
+                createdAt: new Date().toISOString(),
+              })
+            );
+            showAppToast(
+              `${powerupLabel} added to inventory!`,
+              "success",
+              "Powerup added"
+            );
+            window.setTimeout(() => {
+              navigate("/power-up-hunt");
+            }, 900);
+          }
+        } catch (error) {
+          showAppToast(
+            error.message || "Powerup could not be added. Please try again.",
+            "error"
+          );
+        }
       }
 
       const submissionData = await loadProblemSubmissions(

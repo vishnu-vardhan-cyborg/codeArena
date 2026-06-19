@@ -128,22 +128,26 @@ export default function Signup() {
       return;
     }
 
-    const { error: signupError } = await supabase.from("lusers").insert([
-      {
-        username,
-        password,
-        xp: 0,
-        uusername: name,
-        age: ageValue,
-        gender,
-        country,
-        profile_type: profileType,
-        college_name:
-          profileType === "student" ? collegeName.trim() || null : null,
-        organization_name:
-          profileType === "employee" ? organizationName.trim() || null : null,
-      },
-    ]);
+    const { data: createdUser, error: signupError } = await supabase
+      .from("lusers")
+      .insert([
+        {
+          username,
+          password,
+          xp: 0,
+          uusername: name,
+          age: ageValue,
+          gender,
+          country,
+          profile_type: profileType,
+          college_name:
+            profileType === "student" ? collegeName.trim() || null : null,
+          organization_name:
+            profileType === "employee" ? organizationName.trim() || null : null,
+        },
+      ])
+      .select("*")
+      .single();
 
     if (signupError) {
       setError(signupError.message);
@@ -151,8 +155,10 @@ export default function Signup() {
       return;
     }
 
-    setSuccess("Account created. Redirecting to login...");
-    setTimeout(() => navigate("/login"), 900);
+    localStorage.setItem("loggedInUser", JSON.stringify(createdUser));
+    localStorage.setItem("isLoggedIn", "true");
+    setSuccess("Account created. Entering arena...");
+    navigate("/home");
   };
 
   return (

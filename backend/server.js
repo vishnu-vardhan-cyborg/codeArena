@@ -10,6 +10,15 @@ const {
   listProblems,
   saveProblemNote,
 } = require("./problems");
+const {
+  activateShield,
+  applyHuntReward,
+  completeAttackDefense,
+  getPendingAttacks,
+  getUserPowerups,
+  performAttack,
+  runCapsuleMaintenance,
+} = require("./powerups");
 const { adminKeyType, supabase } = require("./supabase");
 const { executeTyphon, getLanguages, requestTyphon } = require("./typhon");
 const { getUserProblemStats } = require("./userStats");
@@ -164,6 +173,64 @@ const requestHandler = async (request, response) => {
           problemId: decodeURIComponent(submissionMatch[1]),
         })
       );
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/time-capsules/maintenance") {
+      sendJson(response, 200, await runCapsuleMaintenance());
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/powerups") {
+      sendJson(response, 200, await getUserPowerups(url.searchParams.get("userId")));
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/powerups/attacks") {
+      sendJson(
+        response,
+        200,
+        await getPendingAttacks({
+          userId: url.searchParams.get("userId"),
+          capsuleId: url.searchParams.get("capsuleId"),
+        })
+      );
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/powerups/activate-shield") {
+      const payload = await readJsonBody(request);
+      sendJson(response, 200, await activateShield(payload));
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/powerups/hunt-reward") {
+      const payload = await readJsonBody(request);
+      sendJson(response, 200, await applyHuntReward(payload));
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/powerups/attack") {
+      const payload = await readJsonBody(request);
+      const result = await performAttack(payload);
+
+      result.notifications?.forEach((notification) => {
+        if (notification.recipientId) {
+          io.to(`user:${notification.recipientId}`).emit(
+            "attack:notification",
+            notification
+          );
+        }
+      });
+
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/powerups/attack/defend") {
+      const payload = await readJsonBody(request);
+      const result = await completeAttackDefense(payload);
+      sendJson(response, 200, result);
       return;
     }
   } catch (error) {

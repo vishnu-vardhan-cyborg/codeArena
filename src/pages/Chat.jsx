@@ -17,6 +17,7 @@ import {
   sendChatMessage,
   socket,
 } from "../socket";
+import { showAppToast } from "../utils/appToast";
 import "../styles/Chat.css";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
@@ -54,7 +55,6 @@ export default function Chat() {
   const [messageText, setMessageText] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
-  const [statusMessage, setStatusMessage] = useState("");
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [conversationSearch, setConversationSearch] = useState("");
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
@@ -64,7 +64,7 @@ export default function Chat() {
     const loadFriends = async () => {
       if (!currentUserId) {
         setFriends([]);
-        setStatusMessage("Unable to load friends: missing user session.");
+        showAppToast("Unable to load friends: missing user session.", "error");
         return;
       }
 
@@ -74,7 +74,7 @@ export default function Chat() {
 
       if (relationError) {
         console.error("Chat friend relations error:", relationError);
-        setStatusMessage("Unable to load friends. Please try again.");
+        showAppToast("Unable to load friends. Please try again.", "error");
         setFriends([]);
         return;
       }
@@ -107,14 +107,14 @@ export default function Chat() {
 
       if (friendError) {
         console.error("Chat friend profile error:", friendError);
-        setStatusMessage(
-          `Unable to load friend profiles: ${friendError.message}`
+        showAppToast(
+          `Unable to load friend profiles: ${friendError.message}`,
+          "error"
         );
         setFriends([]);
         return;
       }
 
-      setStatusMessage("");
       setFriends(friendUsers || []);
     };
 
@@ -186,7 +186,7 @@ export default function Chat() {
     };
 
     const handleError = (errorMessage) => {
-      setStatusMessage(errorMessage);
+      showAppToast(errorMessage, "error");
       setIsCreatingGroup(false);
     };
     const handleConnect = () => setSocketConnected(true);
@@ -273,10 +273,8 @@ export default function Chat() {
   const handleCreateGroup = () => {
     const name = groupName.trim();
 
-    setStatusMessage("");
-
     if (!name || selectedMemberIds.length === 0) {
-      setStatusMessage("Group chat needs a name and at least one friend");
+      showAppToast("Group chat needs a name and at least one friend", "error");
       return;
     }
 
@@ -291,8 +289,6 @@ export default function Chat() {
 
   const handleSendMessage = useCallback(() => {
     const text = messageText.trim();
-
-    setStatusMessage("");
 
     if (!text || !selectedConversation) {
       return;
@@ -332,8 +328,6 @@ export default function Chat() {
           <span>{socketConnected ? "Socket connected" : "Socket offline"}</span>
         </div>
       </header>
-
-      {statusMessage && <p className="chat-status-message">{statusMessage}</p>}
 
       <div className="chat-layout">
         <aside className="chat-sidebar">

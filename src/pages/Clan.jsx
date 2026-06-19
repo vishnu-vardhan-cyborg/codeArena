@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
+import { runCapsuleMaintenance } from "../features/powerups/powerupApi";
+import { showAppToast } from "../utils/appToast";
 import "../styles/Clan.css";
 
 const MIN_DURATION = 7;
@@ -78,6 +80,9 @@ const mapCapsuleRows = (capsuleRows = [], memberRows = []) =>
     durationDays: capsule.duration_days,
     visibility: capsule.visibility || "private",
     roomCode: capsule.room_code || "",
+    status: capsule.status || "active",
+    inactiveSince: capsule.inactive_since || null,
+    expiredAt: capsule.expired_at || null,
     startsAt: capsule.starts_at,
     endsAt: capsule.ends_at,
     createdAt: capsule.created_at,
@@ -117,8 +122,6 @@ export default function Clan({ pageMode = "clans" }) {
   const [roomCodeResult, setRoomCodeResult] = useState(null);
   const [isSearchingRoom, setIsSearchingRoom] = useState(false);
   const [duelOpponentId, setDuelOpponentId] = useState("");
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("success");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingCapsule, setIsCreatingCapsule] = useState(false);
   const durationWheelRef = useRef(null);
@@ -127,8 +130,7 @@ export default function Clan({ pageMode = "clans" }) {
   const durationKeyTimerRef = useRef(null);
 
   const showMessage = (text, type = "success") => {
-    setMessage(text);
-    setMessageType(type);
+    showAppToast(text, type);
   };
 
   const loadClans = useCallback(async () => {
@@ -171,20 +173,33 @@ export default function Clan({ pageMode = "clans" }) {
   }, []);
 
   const loadCapsules = useCallback(async () => {
-    const [
-      { data: capsuleRows, error: capsuleError },
-      { data: memberRows, error: memberError },
-    ] = await Promise.all([
+    await runCapsuleMaintenance().catch(() => null);
+
+    const selectCapsules = (columns) =>
       supabase
         .from("time_capsules")
-        .select(
-          "id, title, challenge, owner_id, duration_days, visibility, room_code, starts_at, ends_at, created_at"
-        )
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("time_capsule_members")
-        .select("capsule_id, user_id, status, joined_at"),
-    ]);
+        .select(columns)
+        .order("created_at", { ascending: false });
+
+    let capsuleResult = await selectCapsules(
+      "id, title, challenge, owner_id, duration_days, visibility, room_code, status, inactive_since, expired_at, starts_at, ends_at, created_at"
+    );
+
+    if (
+      capsuleResult.error &&
+      (capsuleResult.error.code === "42703" ||
+        capsuleResult.error.message?.toLowerCase().includes("status"))
+    ) {
+      capsuleResult = await selectCapsules(
+        "id, title, challenge, owner_id, duration_days, visibility, room_code, starts_at, ends_at, created_at"
+      );
+    }
+
+    const { data: memberRows, error: memberError } = await supabase
+      .from("time_capsule_members")
+      .select("capsule_id, user_id, status, joined_at");
+
+    const { data: capsuleRows, error: capsuleError } = capsuleResult;
 
     if (capsuleError || memberError) {
       const error = capsuleError || memberError;
@@ -198,7 +213,11 @@ export default function Clan({ pageMode = "clans" }) {
       throw error;
     }
 
-    setCapsules(mapCapsuleRows(capsuleRows || [], memberRows || []));
+    setCapsules(
+      mapCapsuleRows(capsuleRows || [], memberRows || []).filter(
+        (capsule) => capsule.status !== "expired"
+      )
+    );
   }, []);
 
   const loadUsersAndFriends = useCallback(async () => {
@@ -744,6 +763,14 @@ export default function Clan({ pageMode = "clans" }) {
       return;
     }
 
+    const confirmed = window.confirm(
+      "Once created, this capsule cannot be manually deleted. If members fail challenges or activity rules, XP may be lost."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setIsCreatingCapsule(true);
     const startsAt = new Date();
     const endsAt = new Date(
@@ -811,6 +838,14 @@ export default function Clan({ pageMode = "clans" }) {
   };
 
   const joinCapsule = async (capsuleId) => {
+    const confirmed = window.confirm(
+      "By joining this capsule, you accept that the capsule cannot be manually deleted. If you fail challenges, you may lose XP."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     const { error } = await supabase
       .from("time_capsule_members")
       .update({
@@ -831,6 +866,14 @@ export default function Clan({ pageMode = "clans" }) {
 
   const joinCapsuleFromRoomCode = async (capsule) => {
     if (!capsule?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "By joining this capsule, you accept that the capsule cannot be manually deleted. If you fail challenges, you may lose XP."
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -1053,8 +1096,6 @@ export default function Clan({ pageMode = "clans" }) {
         </div>
       </div>
 
-      {message && <p className={`clan-message ${messageType}`}>{message}</p>}
-
       <div
         className={
           pageMode === "capsules" ? "clan-layout capsule-page-layout" : "clan-layout"
@@ -1119,6 +1160,62 @@ export default function Clan({ pageMode = "clans" }) {
 
           {!isLoading && activeView === "capsules" && (
             <>
+              <section className="capsule-room-panel">
+                <div className="capsule-section-heading">
+                  <div>
+                    <span className="clan-eyebrow">Room code invite</span>
+                    <h2>Find a Capsule</h2>
+                  </div>
+                </div>
+                <div className="capsule-room-search">
+                  <input
+                    value={roomCodeQuery}
+                    placeholder="Enter room code"
+                    onChange={(event) =>
+                      setRoomCodeQuery(normalizeRoomCode(event.target.value))
+                    }
+                  />
+                  <button type="button" onClick={searchRoomCode}>
+                    {isSearchingRoom ? "Searching..." : "Search"}
+                  </button>
+                </div>
+                {roomCodeResult && (
+                  <article className="capsule-room-result">
+                    <div>
+                      <span>{roomCodeResult.visibility}</span>
+                      <h3>{roomCodeResult.title}</h3>
+                      <p>{roomCodeResult.challenge}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => joinCapsuleFromRoomCode(roomCodeResult)}
+                    >
+                      Join by code
+                    </button>
+                  </article>
+                )}
+              </section>
+
+              <section className="capsule-room-panel capsule-list-section">
+                <div className="capsule-section-heading">
+                  <div>
+                    <span className="clan-eyebrow">Your commitments</span>
+                    <h2>Active Time Capsules</h2>
+                  </div>
+                  <strong>{activeJoinedCapsules.length} active</strong>
+                </div>
+
+                {visibleCapsules.length === 0 ? (
+                  <p className="capsule-empty">
+                    No Time Capsules yet. Create one with a friend to begin.
+                  </p>
+                ) : (
+                  <div className="capsule-grid">
+                    {visibleCapsules.map(renderCapsuleCard)}
+                  </div>
+                )}
+              </section>
+
               <section className="capsule-hero">
                 <div>
                   <span className="clan-eyebrow">Commit together</span>
@@ -1287,6 +1384,11 @@ export default function Clan({ pageMode = "clans" }) {
                   )}
                 </div>
 
+                <p className="capsule-rule-warning">
+                  Once created, this capsule cannot be manually deleted. If
+                  members fail challenges or activity rules, XP may be lost.
+                </p>
+
                 <button
                   className="capsule-create-button"
                   disabled={isCreatingCapsule}
@@ -1294,62 +1396,6 @@ export default function Clan({ pageMode = "clans" }) {
                 >
                   {isCreatingCapsule ? "Sealing capsule..." : "Create Time Capsule"}
                 </button>
-              </section>
-
-              <section className="capsule-room-panel">
-                <div className="capsule-section-heading">
-                  <div>
-                    <span className="clan-eyebrow">Room code invite</span>
-                    <h2>Find a Capsule</h2>
-                  </div>
-                </div>
-                <div className="capsule-room-search">
-                  <input
-                    value={roomCodeQuery}
-                    placeholder="Enter room code"
-                    onChange={(event) =>
-                      setRoomCodeQuery(normalizeRoomCode(event.target.value))
-                    }
-                  />
-                  <button type="button" onClick={searchRoomCode}>
-                    {isSearchingRoom ? "Searching..." : "Search"}
-                  </button>
-                </div>
-                {roomCodeResult && (
-                  <article className="capsule-room-result">
-                    <div>
-                      <span>{roomCodeResult.visibility}</span>
-                      <h3>{roomCodeResult.title}</h3>
-                      <p>{roomCodeResult.challenge}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => joinCapsuleFromRoomCode(roomCodeResult)}
-                    >
-                      Join by code
-                    </button>
-                  </article>
-                )}
-              </section>
-
-              <section className="capsule-list-section">
-                <div className="capsule-section-heading">
-                  <div>
-                    <span className="clan-eyebrow">Your commitments</span>
-                    <h2>Active Time Capsules</h2>
-                  </div>
-                  <strong>{activeJoinedCapsules.length} active</strong>
-                </div>
-
-                {visibleCapsules.length === 0 ? (
-                  <p className="capsule-empty">
-                    No Time Capsules yet. Create one with a friend to begin.
-                  </p>
-                ) : (
-                  <div className="capsule-grid">
-                    {visibleCapsules.map(renderCapsuleCard)}
-                  </div>
-                )}
               </section>
             </>
           )}

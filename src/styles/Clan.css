@@ -170,6 +170,18 @@
   line-height: 1.55;
 }
 
+.capsule-rule-warning {
+  margin: 14px 0 0;
+  border: 1px solid rgba(244, 201, 93, 0.38);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgba(244, 201, 93, 0.12);
+  color: #8a6410;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
 .clan-main {
   min-width: 0;
 }
@@ -348,7 +360,6 @@
 .capsule-room-search button,
 .capsule-room-result button,
 .duel-start-button,
-.capsule-detail-header > button,
 .capsule-message-composer button {
   min-height: 40px;
   border: 1px solid #cbd6d7;
@@ -916,7 +927,6 @@
 
 .clan-duel-panel h2,
 .capsule-detail-header h1,
-.capsule-friends-panel h2,
 .capsule-discussion-panel h2 {
   margin: 6px 0 8px;
 }
@@ -1030,7 +1040,7 @@
 
 .capsule-detail-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 18px;
   border: 1px solid #cbd6d7;
@@ -1103,7 +1113,7 @@
   align-items: stretch;
 }
 
-.capsule-friends-panel,
+.capsule-leaderboard-panel,
 .capsule-score-panel,
 .capsule-discussion-panel {
   border: 1px solid #cbd6d7;
@@ -1218,9 +1228,9 @@
   margin-top: 16px;
 }
 
-.capsule-leaderboard-panel > div {
+.capsule-leaderboard-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   border: 1px solid #d8e0e1;
@@ -1229,9 +1239,26 @@
   background: #fff;
 }
 
-.capsule-leaderboard-panel > div > strong,
-.capsule-leaderboard-panel > div > b {
+.capsule-leaderboard-row > strong,
+.capsule-leaderboard-row > b {
   color: #ef6655;
+}
+
+.capsule-attack-button {
+  min-height: 32px;
+  border: 1px solid #ef6655;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fff4f2;
+  color: #b42318;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-attack-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .capsule-leaderboard-panel small {
@@ -1306,14 +1333,13 @@
 [data-theme="dark"] .duel-card,
 [data-theme="dark"] .duel-friend-list button,
 [data-theme="dark"] .capsule-detail-header,
-[data-theme="dark"] .capsule-detail-header > button,
 [data-theme="dark"] .capsule-score-strip div,
-[data-theme="dark"] .capsule-friends-panel,
+[data-theme="dark"] .capsule-leaderboard-panel,
 [data-theme="dark"] .capsule-score-panel,
 [data-theme="dark"] .capsule-discussion-panel,
 [data-theme="dark"] .capsule-friend-stack > div,
 [data-theme="dark"] .capsule-live-graph,
-[data-theme="dark"] .capsule-leaderboard-panel > div,
+[data-theme="dark"] .capsule-leaderboard-row,
 [data-theme="dark"] .capsule-message,
 [data-theme="dark"] .capsule-message-composer input,
 [data-theme="dark"] .capsule-message-composer button {
@@ -1342,6 +1368,12 @@
   border-color: #397b70;
   background: #213b38;
   color: #a9e2d8;
+}
+
+[data-theme="dark"] .capsule-attack-button {
+  border-color: rgba(239, 102, 85, 0.62);
+  background: rgba(239, 102, 85, 0.16);
+  color: #ffb3aa;
 }
 
 [data-theme="dark"] .capsule-detail-header p,
@@ -2209,10 +2241,6 @@
 .capsule-detail-page .capsule-score-strip::after,
 .capsule-detail-page .capsule-score-strip > div::before,
 .capsule-detail-page .capsule-score-strip > div::after,
-.capsule-detail-page .capsule-detail-header > button::before,
-.capsule-detail-page .capsule-detail-header > button::after,
-.capsule-detail-page .capsule-friends-panel::before,
-.capsule-detail-page .capsule-friends-panel::after,
 .capsule-detail-page .capsule-score-panel::before,
 .capsule-detail-page .capsule-score-panel::after,
 .capsule-detail-page .capsule-discussion-panel::before,
@@ -2229,7 +2257,6 @@
 
 .capsule-detail-page .capsule-detail-header,
 .capsule-detail-page .capsule-score-strip > div,
-.capsule-detail-page .capsule-friends-panel,
 .capsule-detail-page .capsule-score-panel,
 .capsule-detail-page .capsule-discussion-panel,
 .capsule-detail-page .capsule-live-graph,
@@ -2237,7 +2264,6 @@
 .capsule-detail-page .capsule-message-list,
 .capsule-detail-page .capsule-message,
 .capsule-detail-page .capsule-message-composer input,
-.capsule-detail-page .capsule-detail-header > button,
 .capsule-detail-page .capsule-message-composer button {
   border-color: rgba(232, 235, 239, 0.18) !important;
   background:
@@ -2248,7 +2274,7 @@
 }
 
 .capsule-detail-page .capsule-detail-header,
-.capsule-detail-page .capsule-friends-panel,
+.capsule-detail-page .capsule-leaderboard-panel,
 .capsule-detail-page .capsule-score-panel,
 .capsule-detail-page .capsule-discussion-panel {
   padding: clamp(18px, 2vw, 24px) !important;
@@ -2272,7 +2298,6 @@
 
 .capsule-detail-page .capsule-detail-header h1,
 .capsule-detail-page .capsule-score-strip strong,
-.capsule-detail-page .capsule-friends-panel h2,
 .capsule-detail-page .capsule-score-panel h2,
 .capsule-detail-page .capsule-discussion-panel h2,
 .capsule-detail-page .capsule-friend-stack strong,
@@ -2282,8 +2307,8 @@
 }
 
 .capsule-detail-page .capsule-score-strip strong,
-.capsule-detail-page .capsule-leaderboard-panel > button > strong,
-.capsule-detail-page .capsule-leaderboard-panel > button > b,
+.capsule-detail-page .capsule-leaderboard-row > strong,
+.capsule-detail-page .capsule-leaderboard-row > b,
 .capsule-detail-page .capsule-live-code strong {
   color: #f4c95d !important;
 }
@@ -2316,7 +2341,7 @@
 }
 
 .capsule-detail-page .capsule-friend-stack > button:hover,
-.capsule-detail-page .capsule-leaderboard-panel > button:hover {
+.capsule-detail-page .capsule-leaderboard-row:hover {
   border-color: rgba(244, 201, 93, 0.62) !important;
   background:
     linear-gradient(135deg, rgba(244, 201, 93, 0.12), rgba(255, 255, 255, 0.055)),
@@ -2351,10 +2376,10 @@
   padding: 14px !important;
 }
 
-.capsule-detail-page .capsule-leaderboard-panel > button {
+.capsule-detail-page .capsule-leaderboard-row {
   min-height: 66px;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -2366,7 +2391,7 @@
   text-align: left;
 }
 
-.capsule-detail-page .capsule-leaderboard-panel > button span {
+.capsule-detail-page .capsule-leaderboard-row span {
   min-width: 0;
 }
 
@@ -2399,9 +2424,245 @@
   border-radius: 7px;
 }
 
-.capsule-detail-page .capsule-detail-header > button,
 .capsule-detail-page .capsule-message-composer button {
   border-color: rgba(244, 201, 93, 0.62) !important;
   color: #ffe9a3 !important;
   font-weight: 900;
+}
+
+.capsule-detail-page .capsule-attack-button {
+  border-color: rgba(239, 102, 85, 0.72) !important;
+  background: rgba(239, 102, 85, 0.14) !important;
+  color: #ffb3aa !important;
+  font-weight: 900;
+}
+
+.capsule-shield-panel {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: 160px;
+}
+
+.capsule-shield-panel button,
+.capsule-attack-modal-actions button,
+.capsule-attack-modal select {
+  border: 1px solid rgba(244, 201, 93, 0.5);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.14), rgba(255, 255, 255, 0.045)),
+    #10141b;
+  color: #ffe9a3;
+  font-weight: 900;
+}
+
+.capsule-shield-panel button {
+  min-height: 40px;
+  padding: 0 14px;
+  text-transform: uppercase;
+}
+
+.capsule-shield-panel button:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.capsule-shield-panel small {
+  color: #aeb7c2;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.capsule-detail-page .capsule-defend-button {
+  grid-area: attack;
+  justify-self: end;
+  min-height: 32px;
+  min-width: 88px;
+  max-width: 100%;
+  border: 1px solid rgba(89, 211, 198, 0.72) !important;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: rgba(89, 211, 198, 0.14) !important;
+  color: #9df5ec !important;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-attack-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.capsule-attack-modal {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(232, 235, 239, 0.2);
+  border-radius: 12px;
+  padding: 22px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    #0d1117;
+  color: #f6f7f9;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+.capsule-attack-modal h2 {
+  margin: 6px 0;
+  color: #f6f7f9;
+}
+
+.capsule-attack-modal p {
+  margin: 0;
+  color: #aeb7c2;
+}
+
+.capsule-attack-modal label {
+  display: grid;
+  gap: 8px;
+  color: #f6f7f9;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.capsule-attack-modal select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  color: #f6f7f9;
+}
+
+.capsule-attack-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.capsule-attack-modal-actions button {
+  min-height: 42px;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+.capsule-attack-modal-actions button.secondary {
+  border-color: rgba(232, 235, 239, 0.24);
+  background: rgba(255, 255, 255, 0.055);
+  color: #e8ebef;
+}
+
+/* Time capsule detail layout alignment. */
+.capsule-detail-page .capsule-score-strip {
+  gap: 14px !important;
+  margin: 14px 0 22px !important;
+}
+
+.capsule-detail-page .capsule-score-strip > div {
+  min-height: 92px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.capsule-detail-page .capsule-score-strip span {
+  line-height: 1.1;
+}
+
+.capsule-detail-page .capsule-score-strip strong {
+  margin-top: 0 !important;
+  font-size: clamp(30px, 3.2vw, 42px) !important;
+  line-height: 0.95;
+}
+
+.capsule-detail-page .capsule-detail-grid {
+  grid-template-columns:
+    minmax(260px, 0.95fr)
+    minmax(280px, 1fr)
+    minmax(300px, 1.05fr) !important;
+  align-items: start !important;
+  gap: 18px !important;
+}
+
+.capsule-detail-page .capsule-detail-header {
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+}
+
+.capsule-detail-page .capsule-leaderboard-panel,
+.capsule-detail-page .capsule-score-panel,
+.capsule-detail-page .capsule-discussion-panel {
+  min-width: 0;
+  margin-top: 0 !important;
+}
+
+.capsule-detail-page .capsule-leaderboard-panel {
+  overflow: hidden;
+}
+
+.capsule-detail-page .capsule-leaderboard-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+  grid-template-areas:
+    "rank player score"
+    "rank player attack";
+  gap: 8px 12px !important;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.capsule-detail-page .capsule-leaderboard-row > strong {
+  grid-area: rank;
+}
+
+.capsule-detail-page .capsule-leaderboard-row > span {
+  grid-area: player;
+  min-width: 0;
+}
+
+.capsule-detail-page .capsule-leaderboard-row > span b,
+.capsule-detail-page .capsule-leaderboard-row > span small {
+  overflow-wrap: anywhere;
+}
+
+.capsule-detail-page .capsule-leaderboard-row > b {
+  grid-area: score;
+  justify-self: end;
+  min-width: 36px;
+  text-align: right;
+}
+
+.capsule-detail-page .capsule-attack-button {
+  grid-area: attack;
+  justify-self: end;
+  min-width: 88px;
+  max-width: 100%;
+}
+
+@media (max-width: 1180px) {
+  .capsule-detail-page .capsule-detail-grid {
+    grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr) !important;
+  }
+
+  .capsule-detail-page .capsule-discussion-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 780px) {
+  .capsule-detail-page .capsule-detail-header,
+  .capsule-detail-page .capsule-score-strip,
+  .capsule-detail-page .capsule-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .capsule-shield-panel {
+    justify-items: start;
+  }
 }

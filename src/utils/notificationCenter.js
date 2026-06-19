@@ -45,6 +45,12 @@ export const getNotificationText = (notification, actor) => {
     return `${actorName} requested you to join ${title}.`;
   }
 
+  if (notification?.notification_type === "attack") {
+    const message = notification.metadata?.message || "sent an attack.";
+    if (/^(your|you|uno)/i.test(message)) return message;
+    return `${actorName} ${message}`;
+  }
+
   if (notification?.notification_type === "friend_request") {
     return `${actorName} sent you a friend request.`;
   }
@@ -89,13 +95,17 @@ export const loadUnreadNotificationSnapshot = async (userId) => {
 
   const requestResult = await supabase
     .from("friend_requests")
-    .select("id, sender_id, receiver_id, created_at")
-    .eq("receiver_id", normalizedUserId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+    .select("*")
+    .eq("receiver_id", normalizedUserId);
 
   if (!requestResult.error) {
-    pendingRequests = requestResult.data || [];
+    pendingRequests = (requestResult.data || [])
+      .filter((request) => !request.status || request.status === "pending")
+      .sort(
+        (first, second) =>
+          new Date(second.created_at || 0).getTime() -
+          new Date(first.created_at || 0).getTime()
+      );
   }
 
   const socialResult = await supabase
@@ -111,6 +121,57 @@ export const loadUnreadNotificationSnapshot = async (userId) => {
 
   if (!socialResult.error) {
     socialNotifications = socialResult.data || [];
+  }
+
+  const attackResult = await supabase
+    .from("attack_notifications")
+    .select("id, actor_id, attack_id, capsule_id, message, metadata, is_read, created_at")
+    .eq("recipient_id", normalizedUserId)
+    .eq("is_read", false)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (!attackResult.error) {
+    const socialAttackKeys = new Set(
+      socialNotifications
+        .filter((notification) => notification.notification_type === "attack")
+        .map(
+          (notification) =>
+            `${notification.metadata?.attackId || ""}:${notification.metadata?.message || ""}`
+        )
+    );
+
+    const directAttackNotifications = (attackResult.data || [])
+      .filter(
+        (notification) =>
+          !socialAttackKeys.has(
+            `${notification.attack_id || ""}:${notification.message || ""}`
+          )
+      )
+      .map((notification) => ({
+        id: `attack:${notification.id}`,
+        raw_id: notification.id,
+        source_table: "attack_notifications",
+        actor_id: notification.actor_id,
+        notification_type: "attack",
+        post_id: null,
+        metadata: {
+          ...(notification.metadata || {}),
+          attackId: notification.attack_id,
+          capsuleId: notification.capsule_id,
+          message: notification.message,
+        },
+        is_read: notification.is_read,
+        created_at: notification.created_at,
+      }));
+
+    socialNotifications = [...socialNotifications, ...directAttackNotifications]
+      .sort(
+        (first, second) =>
+          new Date(second.created_at || 0).getTime() -
+          new Date(first.created_at || 0).getTime()
+      )
+      .slice(0, 50);
   }
 
   return {

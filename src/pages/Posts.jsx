@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../supabase";
+import { showAppToast } from "../utils/appToast";
 import "../styles/Profile.css";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
@@ -35,8 +36,6 @@ export default function Posts() {
   const [postView, setPostView] = useState("active");
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [postActionId, setPostActionId] = useState("");
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("success");
   const [isPosting, setIsPosting] = useState(false);
   const [socialSetupMissing, setSocialSetupMissing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,8 +57,7 @@ export default function Posts() {
       if (SOCIAL_TABLE_MISSING_CODES.has(postsResult.error.code)) {
         setSocialSetupMissing(true);
       }
-      setMessageType("error");
-      setMessage(postsResult.error.message);
+      showAppToast(postsResult.error.message, "error");
     } else {
       setSocialSetupMissing(false);
       setPosts(postsResult.data || []);
@@ -126,17 +124,14 @@ export default function Posts() {
 
   const createPost = async () => {
     const content = postContent.trim();
-    setMessage("");
 
     if (!content) {
-      setMessageType("error");
-      setMessage("Write something valuable before sharing.");
+      showAppToast("Write something valuable before sharing.", "error");
       return;
     }
 
     if (content.length > 2000) {
-      setMessageType("error");
-      setMessage("Posts can contain up to 2,000 characters.");
+      showAppToast("Posts can contain up to 2,000 characters.", "error");
       return;
     }
 
@@ -152,21 +147,18 @@ export default function Posts() {
       if (SOCIAL_TABLE_MISSING_CODES.has(error.code)) {
         setSocialSetupMissing(true);
       }
-      setMessageType("error");
-      setMessage(error.message);
+      showAppToast(error.message, "error");
       return;
     }
 
     setPosts((existingPosts) => [data, ...existingPosts]);
     setPostContent("");
     setPostModalOpen(false);
-    setMessageType("success");
-    setMessage("Post shared with your network.");
+    showAppToast("Post shared with your network.", "success");
   };
 
   const archivePost = async (post, shouldArchive) => {
     setPostActionId(post.id);
-    setMessage("");
 
     const archivedAt = shouldArchive ? new Date().toISOString() : null;
     const { data, error } = await supabase
@@ -180,11 +172,11 @@ export default function Posts() {
     setPostActionId("");
 
     if (error) {
-      setMessageType("error");
-      setMessage(
+      showAppToast(
         error.code === "PGRST204"
           ? "Run backend/social-schema.sql in Supabase to enable post archiving."
-          : error.message
+          : error.message,
+        "error"
       );
       return;
     }
@@ -194,15 +186,13 @@ export default function Posts() {
         existingPost.id === post.id ? data : existingPost
       )
     );
-    setMessageType("success");
-    setMessage(shouldArchive ? "Post archived." : "Post restored.");
+    showAppToast(shouldArchive ? "Post archived." : "Post restored.", "success");
   };
 
   const deletePost = async (post) => {
     if (!window.confirm("Delete this post permanently?")) return;
 
     setPostActionId(post.id);
-    setMessage("");
 
     const { error } = await supabase
       .from("posts")
@@ -213,16 +203,14 @@ export default function Posts() {
     setPostActionId("");
 
     if (error) {
-      setMessageType("error");
-      setMessage(error.message);
+      showAppToast(error.message, "error");
       return;
     }
 
     setPosts((existingPosts) =>
       existingPosts.filter((existingPost) => existingPost.id !== post.id)
     );
-    setMessageType("success");
-    setMessage("Post deleted.");
+    showAppToast("Post deleted.", "success");
   };
 
   const renderPostAuthor = (post) => {
@@ -306,8 +294,6 @@ export default function Posts() {
           Create post
         </button>
       </header>
-
-      {message && <p className={`profile-message ${messageType}`}>{message}</p>}
 
       {socialSetupMissing && (
         <p className="profile-setup-note">

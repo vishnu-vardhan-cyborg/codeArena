@@ -29,6 +29,42 @@ create index if not exists posts_user_created_idx
 create index if not exists posts_user_archived_idx
   on public.posts (user_id, archived_at, created_at desc);
 
+create table if not exists public.friend_requests (
+  id uuid primary key default gen_random_uuid(),
+  sender_id text not null,
+  receiver_id text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'rejected')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (sender_id <> receiver_id)
+);
+
+alter table public.friend_requests
+  add column if not exists id uuid default gen_random_uuid();
+
+alter table public.friend_requests
+  add column if not exists status text not null default 'pending';
+
+alter table public.friend_requests
+  add column if not exists created_at timestamptz not null default now();
+
+alter table public.friend_requests
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.friend_requests
+  drop constraint if exists friend_requests_status_check;
+
+alter table public.friend_requests
+  add constraint friend_requests_status_check
+  check (status in ('pending', 'accepted', 'rejected'));
+
+create index if not exists friend_requests_receiver_status_idx
+  on public.friend_requests (receiver_id, status, created_at desc);
+
+create index if not exists friend_requests_sender_receiver_idx
+  on public.friend_requests (sender_id, receiver_id);
+
 create table if not exists public.social_notifications (
   id uuid primary key default gen_random_uuid(),
   recipient_id text not null,
@@ -68,10 +104,12 @@ alter table public.social_notifications
 -- until the app migrates to Supabase Auth and user-scoped RLS policies.
 alter table public.user_follows disable row level security;
 alter table public.posts disable row level security;
+alter table public.friend_requests disable row level security;
 alter table public.social_notifications disable row level security;
 
 grant select, insert, update, delete on public.user_follows to anon, authenticated;
 grant select, insert, update, delete on public.posts to anon, authenticated;
+grant select, insert, update, delete on public.friend_requests to anon, authenticated;
 grant select, insert, update, delete on public.social_notifications to anon, authenticated;
 
 create index if not exists social_notifications_recipient_created_idx

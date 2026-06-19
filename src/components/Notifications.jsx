@@ -27,6 +27,10 @@ const getNotificationBody = (notification) => {
     return `requested you to join ${title}.`;
   }
 
+  if (notification.notification_type === "attack") {
+    return notification.metadata?.message || "sent you an attack notification.";
+  }
+
   return "sent you a notification.";
 };
 
@@ -54,12 +58,12 @@ export default function Notifications() {
     const [
       { data: requestData },
       { data: socialData, error: socialError },
+      { data: attackData },
     ] = await Promise.all([
       supabase
         .from("friend_requests")
         .select("*")
-        .eq("receiver_id", currentUser.id)
-        .eq("status", "pending"),
+        .eq("receiver_id", currentUser.id),
       supabase
         .from("social_notifications")
         .select(
@@ -68,6 +72,15 @@ export default function Notifications() {
         .eq("recipient_id", currentUserId)
         .eq("is_read", false)
         .neq("notification_type", "friend_request")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("attack_notifications")
+        .select(
+          "id, actor_id, attack_id, capsule_id, message, metadata, is_read, created_at"
+        )
+        .eq("recipient_id", currentUserId)
+        .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(100),
     ]);
@@ -81,11 +94,16 @@ export default function Notifications() {
       setSocialSetupMissing(false);
     }
 
+    const pendingRequestData = (requestData || []).filter(
+      (request) => !request.status || request.status === "pending"
+    );
+
     const actorIds = [
       ...new Set(
         [
-          ...(requestData || []).map((request) => String(request.sender_id)),
+          ...pendingRequestData.map((request) => String(request.sender_id)),
           ...(socialData || []).map((item) => String(item.actor_id)),
+          ...(attackData || []).map((item) => String(item.actor_id)),
         ].filter(Boolean)
       ),
     ];
@@ -104,16 +122,56 @@ export default function Notifications() {
     );
 
     setRequests(
-      (requestData || []).map((request) => ({
+      pendingRequestData.map((request) => ({
         ...request,
         sender: profileById.get(String(request.sender_id)),
       }))
     );
-    setSocialNotifications(
-      (socialData || []).map((notification) => ({
+    const normalizedSocial = (socialData || []).map((notification) => ({
         ...notification,
+        source_table: "social_notifications",
+        raw_id: notification.id,
         actor: profileById.get(String(notification.actor_id)),
-      }))
+      }));
+    const socialAttackKeys = new Set(
+      normalizedSocial
+        .filter((notification) => notification.notification_type === "attack")
+        .map(
+          (notification) =>
+            `${notification.metadata?.attackId || ""}:${notification.metadata?.message || ""}`
+        )
+    );
+    const normalizedAttacks = (attackData || [])
+      .filter(
+        (notification) =>
+          !socialAttackKeys.has(
+            `${notification.attack_id || ""}:${notification.message || ""}`
+          )
+      )
+      .map((notification) => ({
+        id: `attack:${notification.id}`,
+        raw_id: notification.id,
+        source_table: "attack_notifications",
+        actor_id: notification.actor_id,
+        notification_type: "attack",
+        post_id: null,
+        metadata: {
+          ...(notification.metadata || {}),
+          attackId: notification.attack_id,
+          capsuleId: notification.capsule_id,
+          message: notification.message,
+        },
+        is_read: notification.is_read,
+        created_at: notification.created_at,
+        actor: profileById.get(String(notification.actor_id)),
+      }));
+
+    setSocialNotifications(
+      [...normalizedSocial, ...normalizedAttacks].sort(
+        (first, second) =>
+          new Date(second.created_at || 0).getTime() -
+          new Date(first.created_at || 0).getTime()
+      )
     );
     setLoading(false);
   }, [currentUser?.id, currentUserId]);
@@ -183,18 +241,35 @@ export default function Notifications() {
   };
 
   const markAllRead = async () => {
-    const unreadIds = socialNotifications
-      .filter((item) => !item.is_read)
+    const socialUnreadIds = socialNotifications
+      .filter(
+        (item) => !item.is_read && item.source_table !== "attack_notifications"
+      )
       .map((item) => item.id);
+    const attackUnreadIds = socialNotifications
+      .filter(
+        (item) => !item.is_read && item.source_table === "attack_notifications"
+      )
+      .map((item) => item.raw_id);
 
-    if (unreadIds.length === 0) return;
+    if (socialUnreadIds.length === 0 && attackUnreadIds.length === 0) return;
 
-    const { error } = await supabase
-      .from("social_notifications")
-      .update({ is_read: true })
-      .in("id", unreadIds);
+    const [socialResult, attackResult] = await Promise.all([
+      socialUnreadIds.length
+        ? supabase
+            .from("social_notifications")
+            .update({ is_read: true })
+            .in("id", socialUnreadIds)
+        : Promise.resolve({ error: null }),
+      attackUnreadIds.length
+        ? supabase
+            .from("attack_notifications")
+            .update({ is_read: true })
+            .in("id", attackUnreadIds)
+        : Promise.resolve({ error: null }),
+    ]);
 
-    if (!error) {
+    if (!socialResult.error && !attackResult.error) {
       setSocialNotifications([]);
       loadUnreadNotificationSnapshot(currentUserId).then((snapshot) =>
         broadcastNotificationCount(snapshot.count)
@@ -331,6 +406,12 @@ export default function Notifications() {
                         notification.metadata?.roomCode && (
                           <blockquote>
                             Room code: {notification.metadata.roomCode}
+                          </blockquote>
+                        )}
+                      {notification.notification_type === "attack" &&
+                        notification.metadata?.powerupName && (
+                          <blockquote>
+                            Powerup: {notification.metadata.powerupName}
                           </blockquote>
                         )}
                       <small>

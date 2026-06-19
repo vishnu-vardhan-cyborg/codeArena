@@ -19,6 +19,7 @@ import {
   loadUserProblemStats,
 } from "../features/problems/problemApi";
 import { supabase } from "../supabase";
+import { showAppToast } from "../utils/appToast";
 import "../styles/CareerLoadout.css";
 import "../styles/Profile.css";
 
@@ -155,8 +156,6 @@ export default function Profile() {
   const [editedProfileType, setEditedProfileType] = useState("");
   const [editedCollegeName, setEditedCollegeName] = useState("");
   const [editedOrganizationName, setEditedOrganizationName] = useState("");
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("success");
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditorSaving, setProfileEditorSaving] = useState(false);
   const [cropPreviewUrl, setCropPreviewUrl] = useState("");
@@ -175,8 +174,7 @@ export default function Profile() {
       .single();
 
     if (error) {
-      setMessageType("error");
-      setMessage(error.message);
+      showAppToast(error.message, "error");
       return;
     }
 
@@ -384,7 +382,6 @@ export default function Profile() {
     setEditedOrganizationName(profile.organization_name || "");
     resetCrop();
     setProfileEditorOpen(true);
-    setMessage("");
   };
 
   const closeProfileEditor = () => {
@@ -399,8 +396,7 @@ export default function Profile() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setMessageType("error");
-      setMessage("Please upload a valid image file");
+      showAppToast("Please upload a valid image file", "error");
       return;
     }
 
@@ -422,23 +418,19 @@ export default function Profile() {
     const newProfileType = editedProfileType.trim();
     const newCollegeName = editedCollegeName.trim();
     const newOrganizationName = editedOrganizationName.trim();
-    setMessage("");
 
     if (!newName) {
-      setMessageType("error");
-      setMessage("Name cannot be empty");
+      showAppToast("Name cannot be empty", "error");
       return;
     }
 
     if (!newCountry) {
-      setMessageType("error");
-      setMessage("Country cannot be empty");
+      showAppToast("Country cannot be empty", "error");
       return;
     }
 
     if (newGender && !GENDER_OPTIONS.includes(newGender)) {
-      setMessageType("error");
-      setMessage("Choose a valid gender option");
+      showAppToast("Choose a valid gender option", "error");
       return;
     }
 
@@ -446,26 +438,22 @@ export default function Profile() {
       newProfileType &&
       !PROFILE_TYPE_OPTIONS.some((option) => option.value === newProfileType)
     ) {
-      setMessageType("error");
-      setMessage("Choose a valid profile type");
+      showAppToast("Choose a valid profile type", "error");
       return;
     }
 
     if (newProfileType === "student" && !newCollegeName) {
-      setMessageType("error");
-      setMessage("College name is required for student profiles");
+      showAppToast("College name is required for student profiles", "error");
       return;
     }
 
     if (newProfileType === "employee" && !newOrganizationName) {
-      setMessageType("error");
-      setMessage("Organization is required for employee profiles");
+      showAppToast("Organization is required for employee profiles", "error");
       return;
     }
 
     if (newBio.length > 280) {
-      setMessageType("error");
-      setMessage("Bio must be 280 characters or less");
+      showAppToast("Bio must be 280 characters or less", "error");
       return;
     }
 
@@ -480,8 +468,7 @@ export default function Profile() {
         .maybeSingle();
 
       if (existingName) {
-        setMessageType("error");
-        setMessage("Name already exists");
+        showAppToast("Name already exists", "error");
         setProfileEditorSaving(false);
         return;
       }
@@ -505,8 +492,7 @@ export default function Profile() {
 
       if (!croppedBlob) {
         setProfileEditorSaving(false);
-        setMessageType("error");
-        setMessage("Could not crop the selected image");
+        showAppToast("Could not crop the selected image", "error");
         return;
       }
 
@@ -524,11 +510,11 @@ export default function Profile() {
 
       if (uploadError) {
         setProfileEditorSaving(false);
-        setMessageType("error");
-        setMessage(
+        showAppToast(
           isRlsError(uploadError)
             ? "Profile picture upload is blocked by Supabase Storage policies. Run backend/profile-pics-storage-schema.sql."
-            : uploadError.message
+            : uploadError.message,
+          "error"
         );
         return;
       }
@@ -564,11 +550,11 @@ export default function Profile() {
         await supabase.storage.from(PROFILE_PICS_BUCKET).remove([uploadedPath]);
       }
       setProfileEditorSaving(false);
-      setMessageType("error");
-      setMessage(
+      showAppToast(
         isRlsError(error)
           ? "Profile update is blocked by the lusers Supabase policy."
-          : error.message
+          : error.message,
+        "error"
       );
       return;
     }
@@ -595,8 +581,7 @@ export default function Profile() {
         organization_name: data.organization_name,
       })
     );
-    setMessageType("success");
-    setMessage("Profile updated");
+    showAppToast("Profile updated", "success");
   };
 
   if (!profile) {
@@ -712,8 +697,6 @@ export default function Profile() {
           <h1>Career Loadout</h1>
         </div>
       </header>
-
-      {message && <p className={`profile-message ${messageType}`}>{message}</p>}
 
       <div className="profile-layout">
         <main className="profile-loadout-column">

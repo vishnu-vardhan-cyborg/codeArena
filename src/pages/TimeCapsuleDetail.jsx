@@ -1,12 +1,59 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabase";
+import {
+  activateShield,
+  loadPendingCapsuleAttacks,
+  loadPowerupInventory,
+  performCapsuleAttack,
+  runCapsuleMaintenance,
+} from "../features/powerups/powerupApi";
+import { loadProblemPage } from "../features/problems/problemApi";
+import { showAppToast } from "../utils/appToast";
 import "../styles/Clan.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const GRAPH_COLORS = ["#f5c451", "#59d3c6", "#ef6655", "#8fa4ff"];
 
 const getDisplayName = (user) => user?.uusername || user?.username || "Player";
+
+const ATTACK_POWERUP_LABELS = {
+  settle_the_bet: "Settle the Bet",
+  steal: "Steal XP",
+};
+
+const normalizePowerupKey = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (normalized === "settle_bet") return "settle_the_bet";
+  if (normalized === "steal_xp" || normalized === "stealxp") return "steal";
+  if (normalized === "uno") return "uno_reverse";
+  return normalized;
+};
+
+const normalizeInventory = (inventory = {}, powerups = []) => {
+  const nextInventory = { ...inventory };
+
+  powerups.forEach((powerup) => {
+    const rawKey = String(powerup.powerup_name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const key = normalizePowerupKey(powerup.powerup_name);
+
+    if (key !== rawKey || nextInventory[key] === undefined) {
+      nextInventory[key] =
+        Number(nextInventory[key] || 0) + Number(powerup.quantity || 0);
+    }
+  });
+
+  return nextInventory;
+};
 
 const getDaysRemaining = (endsAt) => {
   const milliseconds = new Date(endsAt).getTime() - Date.now();
@@ -50,21 +97,60 @@ export default function TimeCapsuleDetail() {
   const [pageMessage, setPageMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [discussionUnavailable, setDiscussionUnavailable] = useState(false);
+  const [attackingUserId, setAttackingUserId] = useState("");
+  const [attackModalMember, setAttackModalMember] = useState(null);
+  const [selectedPowerup, setSelectedPowerup] = useState("settle_the_bet");
+  const [selectedProblemId, setSelectedProblemId] = useState("");
+  const [challengeProblems, setChallengeProblems] = useState([]);
+  const [powerupState, setPowerupState] = useState({
+    inventory: {},
+    powerups: [],
+    activeShieldExpiresAt: null,
+  });
+  const [pendingAttacks, setPendingAttacks] = useState([]);
+  const [shieldNow, setShieldNow] = useState(Date.now());
+  const [shieldBusy, setShieldBusy] = useState(false);
 
   const loadCapsuleArena = useCallback(async () => {
     setIsLoading(true);
     setPageMessage("");
 
-    const { data: capsuleRow, error: capsuleError } = await supabase
-      .from("time_capsules")
-      .select(
+    await runCapsuleMaintenance().catch(() => null);
+
+    const selectCapsule = (columns) =>
+      supabase
+        .from("time_capsules")
+        .select(columns)
+        .eq("id", capsuleId)
+        .single();
+
+    let capsuleResult = await selectCapsule(
+      "id, title, challenge, owner_id, duration_days, visibility, room_code, status, inactive_since, expired_at, starts_at, ends_at, created_at"
+    );
+
+    if (
+      capsuleResult.error &&
+      (capsuleResult.error.code === "42703" ||
+        capsuleResult.error.message?.toLowerCase().includes("status"))
+    ) {
+      capsuleResult = await selectCapsule(
         "id, title, challenge, owner_id, duration_days, visibility, room_code, starts_at, ends_at, created_at"
-      )
-      .eq("id", capsuleId)
-      .single();
+      );
+    }
+
+    const { data: capsuleRow, error: capsuleError } = capsuleResult;
 
     if (capsuleError) {
       setPageMessage(capsuleError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (capsuleRow.status === "expired") {
+      setCapsule(null);
+      setPageMessage(
+        "This Time Capsule expired because it had fewer than 2 active members for 4 continuous days."
+      );
       setIsLoading(false);
       return;
     }
@@ -131,6 +217,9 @@ export default function TimeCapsuleDetail() {
       durationDays: capsuleRow.duration_days,
       visibility: capsuleRow.visibility || "private",
       roomCode: capsuleRow.room_code || "",
+      status: capsuleRow.status || "active",
+      inactiveSince: capsuleRow.inactive_since || null,
+      expiredAt: capsuleRow.expired_at || null,
       startsAt: capsuleRow.starts_at,
       endsAt: capsuleRow.ends_at,
       createdAt: capsuleRow.created_at,
@@ -153,6 +242,41 @@ export default function TimeCapsuleDetail() {
   useEffect(() => {
     loadCapsuleArena();
   }, [loadCapsuleArena]);
+
+  const loadCombatState = useCallback(async () => {
+    if (!currentUserId) return;
+
+    const [inventoryResult, pendingResult, problemResult] = await Promise.all([
+      loadPowerupInventory(currentUserId),
+      loadPendingCapsuleAttacks({ userId: currentUserId, capsuleId }),
+      loadProblemPage(currentUserId, { page: 1, pageSize: 25 }),
+    ]);
+
+    const normalizedInventory = normalizeInventory(
+      inventoryResult.inventory || {},
+      inventoryResult.powerups || []
+    );
+
+    setPowerupState({
+      inventory: normalizedInventory,
+      powerups: inventoryResult.powerups || [],
+      activeShieldExpiresAt: inventoryResult.activeShieldExpiresAt || null,
+    });
+    setPendingAttacks(pendingResult.attacks || []);
+    setChallengeProblems(problemResult.problems || []);
+  }, [capsuleId, currentUserId]);
+
+  useEffect(() => {
+    loadCombatState().catch(() => null);
+  }, [loadCombatState]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setShieldNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const memberStats = useMemo(() => {
     return members
@@ -227,12 +351,132 @@ export default function TimeCapsuleDetail() {
     });
 
     if (error) {
-      setPageMessage(error.message);
+      showAppToast(error.message, "error");
       return;
     }
 
     setMessageText("");
     await loadCapsuleArena();
+  };
+
+  const usableAttackPowerups = useMemo(
+    () =>
+      Object.entries(ATTACK_POWERUP_LABELS).filter(
+        ([powerupName]) => Number(powerupState.inventory?.[powerupName] || 0) > 0
+      ),
+    [powerupState.inventory]
+  );
+
+  const pendingDefenseByAttackerId = useMemo(() => {
+    const entries = pendingAttacks
+      .filter((attack) => attack.problemId)
+      .map((attack) => [attack.attackerId, attack]);
+
+    return new Map(entries);
+  }, [pendingAttacks]);
+
+  const shieldExpiresAt = powerupState.activeShieldExpiresAt;
+  const shieldRemainingMs = Math.max(
+    0,
+    shieldExpiresAt ? new Date(shieldExpiresAt).getTime() - shieldNow : 0
+  );
+  const shieldIsActive = shieldRemainingMs > 0;
+  const shieldQuantity = Number(powerupState.inventory?.shield || 0);
+
+  const formatShieldTime = (milliseconds) => {
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  const openAttackModal = (member) => {
+    if (!member?.userId || member.userId === currentUserId) return;
+
+    const defaultPowerup = usableAttackPowerups[0]?.[0] || "settle_the_bet";
+    setSelectedPowerup(defaultPowerup);
+    setSelectedProblemId(challengeProblems[0]?.id || "");
+    setAttackModalMember(member);
+  };
+
+  const closeAttackModal = () => {
+    if (attackingUserId) return;
+    setAttackModalMember(null);
+  };
+
+  const attackMember = async () => {
+    const member = attackModalMember;
+    if (!member?.userId || member.userId === currentUserId) {
+      return;
+    }
+
+    if (usableAttackPowerups.length === 0) {
+      showAppToast("You do not have any attack powerups.", "error");
+      return;
+    }
+
+    if (selectedPowerup === "settle_the_bet" && !selectedProblemId) {
+      showAppToast("Choose the problem number before attacking.", "error");
+      return;
+    }
+
+    setAttackingUserId(member.userId);
+
+    try {
+      const result = await performCapsuleAttack({
+        attackerId: currentUserId,
+        targetId: member.userId,
+        capsuleId,
+        powerupName: selectedPowerup,
+        problemId: selectedPowerup === "settle_the_bet" ? selectedProblemId : null,
+        challengeText:
+          selectedPowerup === "settle_the_bet"
+            ? `problem:${selectedProblemId}`
+            : undefined,
+      });
+
+      showAppToast(result.message || "Attack sent.", "success");
+      setAttackModalMember(null);
+      await loadCombatState();
+      await loadCapsuleArena();
+    } catch (error) {
+      showAppToast(error.message, "error");
+    } finally {
+      setAttackingUserId("");
+    }
+  };
+
+  const activateUserShield = async () => {
+    if (!currentUserId || shieldBusy || shieldIsActive) return;
+
+    setShieldBusy(true);
+    try {
+      const result = await activateShield({ userId: currentUserId });
+      showAppToast(result.message || "Shield activated.", "success");
+      await loadCombatState();
+    } catch (error) {
+      showAppToast(error.message, "error");
+    } finally {
+      setShieldBusy(false);
+    }
+  };
+
+  const defendAttack = (attack) => {
+    if (!attack?.problemId) {
+      showAppToast("This attack does not have a challenge problem.", "error");
+      return;
+    }
+
+    navigate(
+      `/problems/${attack.problemId}?attackId=${encodeURIComponent(
+        attack.id
+      )}&capsuleId=${encodeURIComponent(capsuleId)}`
+    );
   };
 
   if (isLoading) {
@@ -256,9 +500,6 @@ export default function TimeCapsuleDetail() {
   return (
     <div className="page clan-page capsule-detail-page">
       <div className="capsule-detail-header">
-        <button type="button" onClick={() => navigate("/time-capsules")}>
-          Back to capsules
-        </button>
         <div>
           <span className="clan-eyebrow">Live commitment arena</span>
           <h1>{capsule.title}</h1>
@@ -268,9 +509,23 @@ export default function TimeCapsuleDetail() {
           <span>{capsule.visibility}</span>
           <strong>{capsule.roomCode || "No code"}</strong>
         </div>
+        {(shieldIsActive || shieldQuantity > 0) && (
+          <div className="capsule-shield-panel">
+            <button
+              type="button"
+              onClick={activateUserShield}
+              disabled={shieldIsActive || shieldBusy}
+            >
+              {shieldIsActive ? "Shield Active" : "Activate Shield"}
+            </button>
+            <small>
+              {shieldIsActive
+                ? `${formatShieldTime(shieldRemainingMs)} remaining`
+                : `${shieldQuantity} shield${shieldQuantity === 1 ? "" : "s"} ready`}
+            </small>
+          </div>
+        )}
       </div>
-
-      {pageMessage && <p className="clan-message error">{pageMessage}</p>}
 
       <section className="capsule-score-strip">
         <div>
@@ -294,28 +549,60 @@ export default function TimeCapsuleDetail() {
       </section>
 
       <div className="capsule-detail-grid">
-        <aside className="capsule-friends-panel">
-          <span className="clan-eyebrow">Friends</span>
-          <h2>Players</h2>
-          <div className="capsule-friend-stack">
-            {memberStats.map((member) => (
+        <aside className="capsule-leaderboard-panel">
+          <span className="clan-eyebrow">Leaderboard</span>
+          {memberStats.map((member, index) => {
+            const pendingDefense = pendingDefenseByAttackerId.get(member.userId);
+
+            return (
+            <div
+              className="capsule-leaderboard-row"
+              key={member.userId}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/profile/${member.userId}`)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  navigate(`/profile/${member.userId}`);
+                }
+              }}
+            >
+              <strong>#{index + 1}</strong>
+              <span>
+                <b>{member.name}</b>
+                <small>
+                  {member.solvedProblems} solved · {member.activeDays} active days
+                </small>
+              </span>
+              <b>{member.score}</b>
+              {pendingDefense ? (
               <button
+                className="capsule-defend-button"
                 type="button"
-                key={member.userId}
-                onClick={() => navigate(`/profile/${member.userId}`)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  defendAttack(pendingDefense);
+                }}
               >
-                {member.user.profile_pic ? (
-                  <img src={member.user.profile_pic} alt="" />
-                ) : (
-                  <span>{member.name.charAt(0)}</span>
-                )}
-                <div>
-                  <strong>{member.name}</strong>
-                  <small>{member.status}</small>
-                </div>
+                Defend
               </button>
-            ))}
-          </div>
+              ) : (
+              member.userId !== currentUserId && (
+              <button
+                className="capsule-attack-button"
+                type="button"
+                disabled={attackingUserId === member.userId}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openAttackModal(member);
+                }}
+              >
+                Attack
+              </button>
+              ))}
+            </div>
+            );
+          })}
         </aside>
 
         <main className="capsule-score-panel">
@@ -370,26 +657,6 @@ export default function TimeCapsuleDetail() {
             </div>
           </div>
 
-          <section className="capsule-leaderboard-panel">
-            <span className="clan-eyebrow">Leaderboard</span>
-            {memberStats.map((member, index) => (
-              <button
-                type="button"
-                className="capsule-leaderboard-row"
-                key={member.userId}
-                onClick={() => navigate(`/profile/${member.userId}`)}
-              >
-                <strong>#{index + 1}</strong>
-                <span>
-                  <b>{member.name}</b>
-                  <small>
-                    {member.solvedProblems} solved · {member.activeDays} active days
-                  </small>
-                </span>
-                <b>{member.score}</b>
-              </button>
-            ))}
-          </section>
         </main>
 
         <aside className="capsule-discussion-panel">
@@ -441,6 +708,70 @@ export default function TimeCapsuleDetail() {
           )}
         </aside>
       </div>
+
+      {attackModalMember && (
+        <div className="capsule-attack-modal-backdrop" role="presentation">
+          <div className="capsule-attack-modal" role="dialog" aria-modal="true">
+            <div>
+              <span className="clan-eyebrow">Choose attack</span>
+              <h2>Attack {attackModalMember.name}</h2>
+              <p>Select the powerup and problem number for the defender.</p>
+            </div>
+
+            {usableAttackPowerups.length === 0 ? (
+              <p className="capsule-empty">You do not have any attack powerups.</p>
+            ) : (
+              <>
+                <label>
+                  Powerup
+                  <select
+                    value={selectedPowerup}
+                    onChange={(event) => setSelectedPowerup(event.target.value)}
+                  >
+                    {usableAttackPowerups.map(([powerupName, label]) => (
+                      <option key={powerupName} value={powerupName}>
+                        {label} ({powerupState.inventory[powerupName]} owned)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {selectedPowerup === "settle_the_bet" && (
+                  <label>
+                    Problem number
+                    <select
+                      value={selectedProblemId}
+                      onChange={(event) => setSelectedProblemId(event.target.value)}
+                    >
+                      {challengeProblems.map((problem, index) => (
+                        <option key={problem.id} value={problem.id}>
+                          {String(index + 1).padStart(2, "0")} - {problem.title} -{" "}
+                          {problem.difficulty}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+
+            <div className="capsule-attack-modal-actions">
+              <button type="button" className="secondary" onClick={closeAttackModal}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={attackMember}
+                disabled={attackingUserId === attackModalMember.userId}
+              >
+                {attackingUserId === attackModalMember.userId
+                  ? "Sending..."
+                  : "Send attack"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

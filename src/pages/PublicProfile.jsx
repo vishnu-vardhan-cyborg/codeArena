@@ -9,6 +9,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { supabase } from "../supabase";
+import { showAppToast } from "../utils/appToast";
 import "../styles/Profile.css";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
@@ -106,8 +107,7 @@ export default function PublicProfile() {
         .from("friend_requests")
         .select("*")
         .eq("sender_id", currentUserId)
-        .eq("receiver_id", targetUserId)
-        .in("status", ["pending", "accepted"]),
+        .eq("receiver_id", targetUserId),
       supabase
         .from("posts")
         .select("*")
@@ -142,7 +142,14 @@ export default function PublicProfile() {
     setRelation({
       isFriend,
       isFollowing: Boolean((followResult.data || []).length),
-      requestPending: Boolean((requestResult.data || []).length),
+      requestPending: Boolean(
+        (requestResult.data || []).some(
+          (request) =>
+            !request.status ||
+            request.status === "pending" ||
+            request.status === "accepted"
+        )
+      ),
     });
     setLoading(false);
   }, [currentUserId, navigate, targetUserId]);
@@ -162,18 +169,22 @@ export default function PublicProfile() {
   );
 
   const sendFriendRequest = async () => {
-    setMessage("");
-
     const { data: existing } = await supabase
       .from("friend_requests")
       .select("*")
       .eq("sender_id", currentUserId)
-      .eq("receiver_id", targetUserId)
-      .in("status", ["pending", "accepted"]);
+      .eq("receiver_id", targetUserId);
 
-    if (existing?.length > 0) {
+    if (
+      existing?.some(
+        (request) =>
+          !request.status ||
+          request.status === "pending" ||
+          request.status === "accepted"
+      )
+    ) {
       setRelation((current) => ({ ...current, requestPending: true }));
-      setMessage("Friend request already sent");
+      showAppToast("Friend request already sent", "success");
       return;
     }
 
@@ -186,16 +197,15 @@ export default function PublicProfile() {
     ]);
 
     if (error) {
-      setMessage(error.message);
+      showAppToast(error.message, "error");
       return;
     }
 
     setRelation((current) => ({ ...current, requestPending: true }));
-    setMessage("Friend request sent");
+    showAppToast("Friend request sent", "success");
   };
 
   const toggleFollow = async () => {
-    setMessage("");
     const followRelation = {
       follower_id: currentUserId,
       following_id: targetUserId,
@@ -210,10 +220,11 @@ export default function PublicProfile() {
       : await supabase.from("user_follows").insert([followRelation]);
 
     if (error) {
-      setMessage(
+      showAppToast(
         TABLE_MISSING_CODES.has(error.code)
           ? "Run backend/social-schema.sql in Supabase to enable following."
-          : error.message
+          : error.message,
+        "error"
       );
       return;
     }
@@ -229,7 +240,10 @@ export default function PublicProfile() {
         current.followers + (relation.isFollowing ? -1 : 1)
       ),
     }));
-    setMessage(relation.isFollowing ? "Unfollowed player" : "Following player");
+    showAppToast(
+      relation.isFollowing ? "Unfollowed player" : "Following player",
+      "success"
+    );
   };
 
   if (loading) {
@@ -284,8 +298,6 @@ export default function PublicProfile() {
           <p>{profile.bio || "No bio added yet."}</p>
         </div>
       </header>
-
-      {message && <p className="profile-message">{message}</p>}
 
       <section className="public-profile-card">
         <div className="public-profile-identity">
