@@ -9,20 +9,45 @@ LANGUAGES = {
         image="typhon-python",
         run_command=[
             "python",
-            "/sandbox/main.py"
+            "/sandbox/python/main.py"
         ],
-        container_path="/sandbox/main.py"
+        container_path="/sandbox/python/main.py"
     ),
     "java": LanguageConfig(
         name="java",
         file_extension=".java",
         image="typhon-java",
-        run_command=[
-            "bash",
-            "-c",
-            "javac /sandbox/Main.java && java -cp /sandbox Main"
+        compile_command=[
+            "javac",
+            "-cp",
+            "/libs/gson.jar",
+            "/sandbox/Main.java"
         ],
+        run_command=[
+            "java",
+            "-cp",
+            "/sandbox:/libs/gson.jar",
+            "Main"
+        ],
+    
         container_path="/sandbox/Main.java"
     ),
-
+    "cpp": LanguageConfig(
+        name="cpp",
+        file_extension=".cpp",
+        image="typhon-cpp",
+    
+        compile_command=[
+            "g++",
+            "/sandbox/main.cpp",
+            "-o",
+            "/sandbox/main"
+        ],
+    
+        run_command=[
+            "/sandbox/main"
+        ],
+    
+        container_path="/sandbox/main.cpp"
+    )
 }

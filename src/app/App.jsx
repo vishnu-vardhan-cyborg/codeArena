@@ -27,6 +27,9 @@ import SeasonDetails from "../features/learning/pages/SeasonDetails";
 import Notifications from "../features/notifications/pages/Notifications";
 import ThemeToggle from "../shared/components/ThemeToggle";
 import AuthenticatedShell from "../shared/components/AuthenticatedShell";
+import Submissions from "../features/submissions/Submissions";
+import SubmissionHistory from "../features/problems/components/SubmissionHistory";
+import SubmissionDetails from "../features/submissions/SubmissionDetails";
 import "../styles/app/App.css";
 import "../styles/app/Theme.css";
 import "../styles/app/VisualRefresh.css";
@@ -342,6 +345,10 @@ export default function App() {
             </ProtectedShellPage>
           }
         />
+        <Route
+  path="/submissions"
+  element={<Submissions />}
+/>
 
         <Route
           path="/posts"
@@ -374,7 +381,10 @@ export default function App() {
             </ProtectedShellPage>
           }
         />
-
+<Route
+  path="/submissions/:submissionId"
+  element={<SubmissionDetails />}
+/>
         <Route
           path="/time-capsules"
           element={

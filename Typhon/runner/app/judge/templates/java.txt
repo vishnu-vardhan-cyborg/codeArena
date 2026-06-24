@@ -1,0 +1,1016 @@
+import java.util.*;
+import java.lang.reflect.*;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
+{{SOLUTION_CODE}}
+
+public class Main {
+
+    static class TestCase {
+        Object[] args;
+        String[] argTypes;
+    }
+
+    // =========================================================
+    // Minimal JSON parser/serializer (no external dependency)
+    // =========================================================
+
+    static final class MiniJson {
+
+        private final String src;
+        private int pos;
+
+        private MiniJson(String src) {
+            this.src = src;
+            this.pos = 0;
+        }
+
+        static Object parse(String json) {
+            MiniJson parser = new MiniJson(json);
+            parser.skipWhitespace();
+            return parser.parseValue();
+        }
+
+        private void skipWhitespace() {
+            while (
+                pos < src.length() &&
+                Character.isWhitespace(src.charAt(pos))
+            ) {
+                pos++;
+            }
+        }
+
+        private Object parseValue() {
+
+            skipWhitespace();
+            char c = src.charAt(pos);
+
+            if (c == '{') return parseObject();
+            if (c == '[') return parseArray();
+            if (c == '"') return parseString();
+            if (c == 't' || c == 'f') return parseBoolean();
+            if (c == 'n') { pos += 4; return null; }
+
+            return parseNumber();
+        }
+
+        private Map<String, Object> parseObject() {
+
+            Map<String, Object> map = new LinkedHashMap<>();
+            pos++; // consume '{'
+            skipWhitespace();
+
+            if (src.charAt(pos) == '}') {
+                pos++;
+                return map;
+            }
+
+            while (true) {
+                skipWhitespace();
+                String key = parseString();
+                skipWhitespace();
+                pos++; // consume ':'
+                Object value = parseValue();
+                map.put(key, value);
+                skipWhitespace();
+
+                char ch = src.charAt(pos);
+                pos++;
+
+                if (ch == '}') {
+                    break;
+                }
+            }
+
+            return map;
+        }
+
+        private List<Object> parseArray() {
+
+            List<Object> list = new ArrayList<>();
+            pos++; // consume '['
+            skipWhitespace();
+
+            if (src.charAt(pos) == ']') {
+                pos++;
+                return list;
+            }
+
+            while (true) {
+                list.add(parseValue());
+                skipWhitespace();
+
+                char ch = src.charAt(pos);
+                pos++;
+
+                if (ch == ']') {
+                    break;
+                }
+            }
+
+            return list;
+        }
+
+        private String parseString() {
+
+            pos++; // consume opening quote
+            StringBuilder sb = new StringBuilder();
+
+            while (src.charAt(pos) != '"') {
+
+                char c = src.charAt(pos);
+
+                if (c == '\\') {
+
+                    pos++;
+                    char esc = src.charAt(pos);
+
+                    switch (esc) {
+                        case 'n': sb.append('\n'); break;
+                        case 't': sb.append('\t'); break;
+                        case 'r': sb.append('\r'); break;
+                        case 'b': sb.append('\b'); break;
+                        case 'f': sb.append('\f'); break;
+                        case '"': sb.append('"'); break;
+                        case '\\': sb.append('\\'); break;
+                        case '/': sb.append('/'); break;
+                        case 'u':
+                            String hex = src.substring(pos + 1, pos + 5);
+                            sb.append((char) Integer.parseInt(hex, 16));
+                            pos += 4;
+                            break;
+                        default:
+                            sb.append(esc);
+                    }
+
+                } else {
+                    sb.append(c);
+                }
+
+                pos++;
+            }
+
+            pos++; // consume closing quote
+            return sb.toString();
+        }
+
+        private Boolean parseBoolean() {
+
+            if (src.charAt(pos) == 't') {
+                pos += 4;
+                return Boolean.TRUE;
+            }
+
+            pos += 5;
+            return Boolean.FALSE;
+        }
+
+        private Double parseNumber() {
+
+            int start = pos;
+
+            while (
+                pos < src.length() &&
+                "+-0123456789.eE".indexOf(src.charAt(pos)) >= 0
+            ) {
+                pos++;
+            }
+
+            return Double.parseDouble(src.substring(start, pos));
+        }
+
+        static String stringify(Object value) {
+            StringBuilder sb = new StringBuilder();
+            write(value, sb);
+            return sb.toString();
+        }
+
+        private static void write(Object value, StringBuilder sb) {
+
+            if (value == null) {
+                sb.append("null");
+                return;
+            }
+
+            if (value instanceof String) {
+                writeString((String) value, sb);
+                return;
+            }
+
+            if (value instanceof Character) {
+                writeString(value.toString(), sb);
+                return;
+            }
+
+            if (value instanceof Boolean || value instanceof Number) {
+                sb.append(value.toString());
+                return;
+            }
+
+            if (value instanceof Map) {
+
+                sb.append('{');
+                boolean first = true;
+
+                for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
+
+                    if (!first) {
+                        sb.append(',');
+                    }
+
+                    first = false;
+                    writeString(String.valueOf(e.getKey()), sb);
+                    sb.append(':');
+                    write(e.getValue(), sb);
+                }
+
+                sb.append('}');
+                return;
+            }
+
+            if (value instanceof Iterable) {
+
+                sb.append('[');
+                boolean first = true;
+
+                for (Object item : (Iterable<?>) value) {
+
+                    if (!first) {
+                        sb.append(',');
+                    }
+
+                    first = false;
+                    write(item, sb);
+                }
+
+                sb.append(']');
+                return;
+            }
+
+            writeString(value.toString(), sb);
+        }
+
+        private static void writeString(String s, StringBuilder sb) {
+
+            sb.append('"');
+
+            for (int i = 0; i < s.length(); i++) {
+
+                char c = s.charAt(i);
+
+                switch (c) {
+                    case '"': sb.append("\\\""); break;
+                    case '\\': sb.append("\\\\"); break;
+                    case '\n': sb.append("\\n"); break;
+                    case '\r': sb.append("\\r"); break;
+                    case '\t': sb.append("\\t"); break;
+                    default:
+                        if (c < 0x20) {
+                            sb.append(String.format("\\u%04x", (int) c));
+                        } else {
+                            sb.append(c);
+                        }
+                }
+            }
+
+            sb.append('"');
+        }
+    }
+
+    // =========================================================
+    // Helpers: TreeNode / ListNode detection
+    // =========================================================
+
+    private static boolean isTreeNodeType(Class<?> clazz) {
+        return clazz.getSimpleName().equals("TreeNode");
+    }
+
+    private static boolean isListNodeType(Class<?> clazz) {
+        return clazz.getSimpleName().equals("ListNode");
+    }
+
+    private static List<Field> getAllFields(Class<?> clazz) {
+
+        List<Field> fields = new ArrayList<>();
+        Class<?> current = clazz;
+
+        while (current != null && current != Object.class) {
+            fields.addAll(Arrays.asList(current.getDeclaredFields()));
+            current = current.getSuperclass();
+        }
+
+        return fields;
+    }
+
+    // =========================================================
+    // Input deserialization
+    // =========================================================
+
+    private static Object newNodeInstance(
+        Class<?> nodeClass,
+        Object val
+    ) throws Exception {
+
+        Constructor<?> ctor = nodeClass.getDeclaredConstructor();
+        ctor.setAccessible(true);
+        Object instance = ctor.newInstance();
+
+        Field valField = nodeClass.getDeclaredField("val");
+        valField.setAccessible(true);
+        valField.set(instance, convertValue(val, valField.getGenericType()));
+
+        return instance;
+    }
+
+    private static void setField(
+        Object target,
+        String name,
+        Object value
+    ) throws Exception {
+
+        Field f = target.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        f.set(target, value);
+    }
+
+    private static Object buildTreeNode(
+        List<?> values,
+        Class<?> nodeClass
+    ) throws Exception {
+
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+
+        Iterator<?> it = values.iterator();
+        Object firstVal = it.next();
+
+        if (firstVal == null) {
+            return null;
+        }
+
+        Object root = newNodeInstance(nodeClass, firstVal);
+        Queue<Object> queue = new LinkedList<>();
+        queue.add(root);
+
+        while (it.hasNext() && !queue.isEmpty()) {
+
+            Object current = queue.poll();
+
+            if (it.hasNext()) {
+
+                Object leftVal = it.next();
+
+                if (leftVal != null) {
+                    Object leftNode = newNodeInstance(nodeClass, leftVal);
+                    setField(current, "left", leftNode);
+                    queue.add(leftNode);
+                }
+            }
+
+            if (it.hasNext()) {
+
+                Object rightVal = it.next();
+
+                if (rightVal != null) {
+                    Object rightNode = newNodeInstance(nodeClass, rightVal);
+                    setField(current, "right", rightNode);
+                    queue.add(rightNode);
+                }
+            }
+        }
+
+        return root;
+    }
+
+    private static Object buildListNode(
+        List<?> values,
+        Class<?> nodeClass
+    ) throws Exception {
+
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+
+        Object head = null;
+        Object prev = null;
+
+        for (Object v : values) {
+
+            Object node = newNodeInstance(nodeClass, v);
+
+            if (head == null) {
+                head = node;
+            }
+
+            if (prev != null) {
+                setField(prev, "next", node);
+            }
+
+            prev = node;
+        }
+
+        return head;
+    }
+
+    private static Object buildCustomObject(
+        Map<?, ?> map,
+        Class<?> clazz
+    ) throws Exception {
+
+        Constructor<?> ctor = clazz.getDeclaredConstructor();
+        ctor.setAccessible(true);
+        Object instance = ctor.newInstance();
+
+        for (Field field : getAllFields(clazz)) {
+
+            field.setAccessible(true);
+            String name = field.getName();
+
+            if (map.containsKey(name)) {
+                field.set(
+                    instance,
+                    convertValue(map.get(name), field.getGenericType())
+                );
+            }
+        }
+
+        return instance;
+    }
+
+    // Best-effort element conversion for raw (non-generic)
+    // List/Set declarations - whole-number doubles become Integer.
+    private static Object convertGenericElement(Object item) {
+
+        if (item instanceof Double) {
+
+            double d = (Double) item;
+
+            if (d == Math.floor(d)) {
+                return (int) d;
+            }
+
+            return d;
+        }
+
+        return item;
+    }
+
+    private static Object convertValue(
+        Object value,
+        Type targetType
+    ) throws Exception {
+
+        if (value == null) {
+            return null;
+        }
+
+        // ---- Parameterized types: List<X>, Set<X>, Map<K,V>, nested ----
+        if (targetType instanceof ParameterizedType) {
+
+            ParameterizedType pt = (ParameterizedType) targetType;
+            Type rawType = pt.getRawType();
+
+            if (
+                rawType instanceof Class &&
+                List.class.isAssignableFrom((Class<?>) rawType)
+            ) {
+
+                Type elementType = pt.getActualTypeArguments()[0];
+                List<?> list = (List<?>) value;
+                List<Object> result = new ArrayList<>();
+
+                for (Object item : list) {
+                    result.add(convertValue(item, elementType));
+                }
+
+                return result;
+            }
+
+            if (
+                rawType instanceof Class &&
+                Set.class.isAssignableFrom((Class<?>) rawType)
+            ) {
+
+                Type elementType = pt.getActualTypeArguments()[0];
+                List<?> list = (List<?>) value;
+                Set<Object> result = new LinkedHashSet<>();
+
+                for (Object item : list) {
+                    result.add(convertValue(item, elementType));
+                }
+
+                return result;
+            }
+
+            if (
+                rawType instanceof Class &&
+                Map.class.isAssignableFrom((Class<?>) rawType)
+            ) {
+
+                Type keyType = pt.getActualTypeArguments()[0];
+                Type valType = pt.getActualTypeArguments()[1];
+                Map<?, ?> map = (Map<?, ?>) value;
+                Map<Object, Object> result = new LinkedHashMap<>();
+
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    result.put(
+                        convertValue(entry.getKey(), keyType),
+                        convertValue(entry.getValue(), valType)
+                    );
+                }
+
+                return result;
+            }
+
+            return value;
+        }
+
+        // ---- Raw Class types ----
+        if (targetType instanceof Class) {
+
+            Class<?> clazz = (Class<?>) targetType;
+
+            if (clazz.isArray()) {
+
+                Class<?> componentType = clazz.getComponentType();
+                List<?> list = (List<?>) value;
+                Object array = Array.newInstance(componentType, list.size());
+
+                for (int i = 0; i < list.size(); i++) {
+                    Array.set(
+                        array,
+                        i,
+                        convertValue(list.get(i), componentType)
+                    );
+                }
+
+                return array;
+            }
+
+            if (clazz == int.class || clazz == Integer.class) {
+                return ((Double) value).intValue();
+            }
+
+            if (clazz == long.class || clazz == Long.class) {
+                return ((Double) value).longValue();
+            }
+
+            if (clazz == double.class || clazz == Double.class) {
+                return (Double) value;
+            }
+
+            if (clazz == float.class || clazz == Float.class) {
+                return ((Double) value).floatValue();
+            }
+
+            if (clazz == short.class || clazz == Short.class) {
+                return ((Double) value).shortValue();
+            }
+
+            if (clazz == byte.class || clazz == Byte.class) {
+                return ((Double) value).byteValue();
+            }
+
+            if (clazz == boolean.class || clazz == Boolean.class) {
+                return (Boolean) value;
+            }
+
+            if (clazz == char.class || clazz == Character.class) {
+                return ((String) value).charAt(0);
+            }
+
+            if (clazz == String.class) {
+                return (String) value;
+            }
+
+            if (isTreeNodeType(clazz)) {
+                return buildTreeNode((List<?>) value, clazz);
+            }
+
+            if (isListNodeType(clazz)) {
+                return buildListNode((List<?>) value, clazz);
+            }
+
+            if (List.class.isAssignableFrom(clazz)) {
+
+                List<?> list = (List<?>) value;
+                List<Object> result = new ArrayList<>();
+
+                for (Object item : list) {
+                    result.add(convertGenericElement(item));
+                }
+
+                return result;
+            }
+
+            if (Set.class.isAssignableFrom(clazz)) {
+
+                List<?> list = (List<?>) value;
+                Set<Object> result = new LinkedHashSet<>();
+
+                for (Object item : list) {
+                    result.add(convertGenericElement(item));
+                }
+
+                return result;
+            }
+
+            if (Map.class.isAssignableFrom(clazz)) {
+                return value;
+            }
+
+            if (value instanceof Map) {
+                return buildCustomObject((Map<?, ?>) value, clazz);
+            }
+
+            return value;
+        }
+
+        return value;
+    }
+
+    // =========================================================
+    // Output serialization
+    // =========================================================
+
+    private static List<Object> treeNodeToList(Object root) throws Exception {
+
+        List<Object> result = new ArrayList<>();
+        Queue<Object> queue = new LinkedList<>();
+        queue.add(root);
+
+        while (!queue.isEmpty()) {
+
+            Object node = queue.poll();
+
+            if (node == null) {
+                result.add(null);
+                continue;
+            }
+
+            Field valField = node.getClass().getDeclaredField("val");
+            valField.setAccessible(true);
+            result.add(valField.get(node));
+
+            Field leftField = node.getClass().getDeclaredField("left");
+            leftField.setAccessible(true);
+
+            Field rightField = node.getClass().getDeclaredField("right");
+            rightField.setAccessible(true);
+
+            Object left = leftField.get(node);
+            Object right = rightField.get(node);
+
+            if (left != null || right != null) {
+                queue.add(left);
+                queue.add(right);
+            }
+        }
+
+        while (
+            !result.isEmpty() &&
+            result.get(result.size() - 1) == null
+        ) {
+            result.remove(result.size() - 1);
+        }
+
+        return result;
+    }
+
+    private static List<Object> listNodeToList(Object head) throws Exception {
+
+        List<Object> result = new ArrayList<>();
+        Object current = head;
+
+        while (current != null) {
+
+            Field valField = current.getClass().getDeclaredField("val");
+            valField.setAccessible(true);
+            result.add(valField.get(current));
+
+            Field nextField = current.getClass().getDeclaredField("next");
+            nextField.setAccessible(true);
+            current = nextField.get(current);
+        }
+
+        return result;
+    }
+
+    private static Object convertOutput(Object value) throws Exception {
+
+        if (value == null) {
+            return null;
+        }
+
+        Class<?> clazz = value.getClass();
+
+        if (isTreeNodeType(clazz)) {
+            return treeNodeToList(value);
+        }
+
+        if (isListNodeType(clazz)) {
+            return listNodeToList(value);
+        }
+
+        if (clazz.isArray()) {
+
+            int length = Array.getLength(value);
+            List<Object> result = new ArrayList<>();
+
+            for (int i = 0; i < length; i++) {
+                result.add(convertOutput(Array.get(value, i)));
+            }
+
+            return result;
+        }
+
+        if (value instanceof List) {
+
+            List<Object> result = new ArrayList<>();
+
+            for (Object item : (List<?>) value) {
+                result.add(convertOutput(item));
+            }
+
+            return result;
+        }
+
+        if (value instanceof Set) {
+
+            List<Object> result = new ArrayList<>();
+
+            for (Object item : (Set<?>) value) {
+                result.add(convertOutput(item));
+            }
+
+            return result;
+        }
+
+        if (value instanceof Map) {
+
+            Map<Object, Object> result = new LinkedHashMap<>();
+
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
+                result.put(e.getKey(), convertOutput(e.getValue()));
+            }
+
+            return result;
+        }
+
+        if (
+            value instanceof Number ||
+            value instanceof Boolean ||
+            value instanceof String ||
+            value instanceof Character
+        ) {
+            return value;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        for (Field field : getAllFields(clazz)) {
+            field.setAccessible(true);
+            result.put(field.getName(), convertOutput(field.get(value)));
+        }
+
+        return result;
+    }
+
+    // =========================================================
+    // Overload resolution
+    // =========================================================
+
+    private static String normalizeTypeName(String name) {
+
+        switch (name) {
+            case "Integer": return "int";
+            case "Long": return "long";
+            case "Double": return "double";
+            case "Float": return "float";
+            case "Short": return "short";
+            case "Byte": return "byte";
+            case "Boolean": return "boolean";
+            case "Character": return "char";
+            default: return name;
+        }
+    }
+
+    private static boolean matchesTypeHint(Method m, String[] hints) {
+
+        Class<?>[] paramTypes = m.getParameterTypes();
+
+        if (paramTypes.length != hints.length) {
+            return false;
+        }
+
+        for (int i = 0; i < paramTypes.length; i++) {
+
+            // Strip everything from the first '<' onward, so nested
+            // generics like "List<List<Integer>>" correctly reduce to
+            // "List" instead of leaving a stray ">" (regex with .*?
+            // still matches through inner '<' chars - depth, not
+            // greediness, is the problem - so use a plain split instead).
+            String raw = hints[i].trim();
+            int genericStart = raw.indexOf('<');
+            String hint = (
+                genericStart >= 0
+                    ? raw.substring(0, genericStart)
+                    : raw
+            ).trim();
+            String actual = paramTypes[i].getSimpleName();
+
+            if (
+                !normalizeTypeName(hint).equalsIgnoreCase(
+                    normalizeTypeName(actual)
+                )
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // =========================================================
+    // Main
+    // =========================================================
+
+    @SuppressWarnings("unchecked")
+    public static void main(String[] args) throws Exception {
+
+        String testDataJson = {{TEST_DATA_JSON}};
+
+        Object parsed = MiniJson.parse(testDataJson);
+        List<?> rawTestCases = (List<?>) parsed;
+
+        List<TestCase> testCases = new ArrayList<>();
+
+        for (Object item : rawTestCases) {
+
+            Map<String, Object> entry = (Map<String, Object>) item;
+            TestCase tc = new TestCase();
+
+            List<?> argsList = (List<?>) entry.get("args");
+            tc.args = argsList.toArray();
+
+            Object argTypesRaw = entry.get("argTypes");
+
+            if (argTypesRaw != null) {
+
+                List<?> typesList = (List<?>) argTypesRaw;
+                tc.argTypes = new String[typesList.size()];
+
+                for (int i = 0; i < typesList.size(); i++) {
+                    tc.argTypes[i] = (String) typesList.get(i);
+                }
+            }
+
+            testCases.add(tc);
+        }
+
+Solution solution = new Solution();
+        List<Method> candidates = new ArrayList<>();
+
+        for (Method method : Solution.class.getDeclaredMethods()) {
+
+            if (method.getName().equals("{{FUNCTION_NAME}}")) {
+                method.setAccessible(true);
+                candidates.add(method);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            throw new RuntimeException(
+                "Method not found: {{FUNCTION_NAME}}"
+            );
+        }
+
+        List<Map<String, Object>> results = new ArrayList<>();
+
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+
+        for (TestCase testCase : testCases) {
+
+            Map<String, Object> result = new HashMap<>();
+
+            ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
+            ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
+
+            PrintStream outCapture = new PrintStream(outBuffer, true);
+            PrintStream errCapture = new PrintStream(errBuffer, true);
+
+            try {
+
+                Method selected = null;
+                Object[] invokeArgs = null;
+                Exception lastError = null;
+
+                List<Method> pool = new ArrayList<>(candidates);
+
+                pool.sort((a, b) -> Integer.compare(
+                    Math.abs(a.getParameterCount() - testCase.args.length),
+                    Math.abs(b.getParameterCount() - testCase.args.length)
+                ));
+
+                if (testCase.argTypes != null) {
+
+                    List<Method> hinted = new ArrayList<>();
+
+                    for (Method m : pool) {
+                        if (matchesTypeHint(m, testCase.argTypes)) {
+                            hinted.add(m);
+                        }
+                    }
+
+                    if (!hinted.isEmpty()) {
+                        pool = hinted;
+                    }
+                }
+
+                for (Method candidate : pool) {
+
+                    Type[] paramTypes = candidate.getGenericParameterTypes();
+
+                    if (paramTypes.length != testCase.args.length) {
+                        continue;
+                    }
+
+                    try {
+
+                        Object[] convertedArgs = new Object[paramTypes.length];
+
+                        for (int i = 0; i < paramTypes.length; i++) {
+                            convertedArgs[i] = convertValue(
+                                testCase.args[i],
+                                paramTypes[i]
+                            );
+                        }
+
+                        selected = candidate;
+                        invokeArgs = convertedArgs;
+                        break;
+
+                    } catch (Exception e) {
+                        lastError = e;
+                    }
+                }
+
+                if (selected == null) {
+                    throw new RuntimeException(
+                        "No matching overload found for {{FUNCTION_NAME}}"
+                        + (lastError != null ? (": " + lastError) : "")
+                    );
+                }
+
+                Object receiver =
+                    Modifier.isStatic(selected.getModifiers())
+                        ? null
+                        : solution;
+
+                Object actual;
+
+                System.setOut(outCapture);
+                System.setErr(errCapture);
+
+                try {
+                    actual = selected.invoke(receiver, invokeArgs);
+                } finally {
+                    System.setOut(originalOut);
+                    System.setErr(originalErr);
+                }
+
+                result.put("success", true);
+                result.put("actual", convertOutput(actual));
+
+            } catch (Exception e) {
+
+                System.setOut(originalOut);
+                System.setErr(originalErr);
+
+                Throwable cause =
+                    (e instanceof InvocationTargetException &&
+                        e.getCause() != null)
+                        ? e.getCause()
+                        : e;
+
+                result.put("success", false);
+                result.put("error", cause.toString());
+
+            } finally {
+
+                outCapture.flush();
+                errCapture.flush();
+
+                result.put("stdout", outBuffer.toString());
+                result.put("stderr", errBuffer.toString());
+            }
+
+            results.add(result);
+        }
+
+        System.out.println(MiniJson.stringify(results));
+    }
+}

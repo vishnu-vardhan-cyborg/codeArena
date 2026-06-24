@@ -1,88 +1,246 @@
-# Typhon
+# ⚡ Typhon
 
-A secure, container-based code execution engine built with FastAPI and Docker.
+<p align="center">
+  <b>Fast. Isolated. Function-First.</b>
+</p>
 
-Typhon executes untrusted code inside isolated Docker containers with resource limits, submission lifecycle management, and multi-language support.
-
-## Features
-
-### Supported Languages
-
-* Python 3
-* Java 21
-
-### Security
-
-* Docker-based sandboxing
-* Network isolation (`--network none`)
-* Memory limits
-* CPU limits
-* PID limits
-* Non-root execution
-* Automatic container cleanup
-
-### Execution Engine
-
-* Submission Queue
-* Background Worker
-* Status Tracking
-* Execution Time Measurement
-* Standard Input (stdin) Support
+<p align="center">
+  A lightweight Docker-powered judging engine for coding platforms, assessments, interview systems, and online judges.
+</p>
 
 ---
 
-# Architecture
+## 🚀 What is Typhon?
+
+Typhon is a function judging engine that executes user submissions inside isolated Docker sandboxes and evaluates them against visible and hidden test cases.
+
+Unlike traditional code execution APIs that expect complete programs, Typhon focuses on **function-based evaluation**.
+
+Users submit:
+
+* A function
+* Test cases
+* Expected outputs
+
+Typhon handles:
+
+* Runner generation
+* Sandbox execution
+* Output validation
+* Error handling
+* Verdict generation
 
 ```text
-Client
-  │
-  ▼
-POST /submissions
-  │
-  ▼
-Submission Service
-  │
-  ▼
-Queue
-  │
-  ▼
-Worker
-  │
-  ▼
-Executor
-  │
-  ▼
-Language Runner
-  │
-  ▼
+User Function
+      │
+      ▼
+Language Builder
+      │
+      ▼
+Generated Runner
+      │
+      ▼
 Docker Sandbox
-```
-
-Submission lifecycle:
-
-```text
-QUEUED
-   ↓
-RUNNING
-   ↓
-COMPLETED
-```
-
-or
-
-```text
-QUEUED
-   ↓
-RUNNING
-   ↓
-FAILED
+      │
+      ▼
+JSON Results
+      │
+      ▼
+Verdicts
 ```
 
 ---
 
-# Requirements
+## ✨ Features
 
-Install:
+* 🚀 Function-level judging
+* 🐳 Docker sandbox execution
+* ☕ Java support
+* 🐍 Python support
+* 🔒 Hidden test cases
+* 📄 Stdout capture
+* ⚠️ Stderr capture
+* ❌ Compilation error detection
+* 💥 Runtime error detection
+* ⏱️ Time limit enforcement
+* 🛑 Stop-on-failure mode
+* 📊 Detailed per-test verdicts
+* 📦 Structured JSON responses
+* ⚡ Single sandbox execution for all test cases
+
+---
+
+## 🎯 Why Typhon?
+
+Most execution engines work like this:
+
+```text
+100 Test Cases
+      │
+      ├── Execution #1
+      ├── Execution #2
+      ├── Execution #3
+      └── ...
+```
+
+Every execution starts a runtime again.
+
+Typhon instead generates a runner and executes everything in a single sandbox:
+
+```text
+100 Test Cases
+      │
+      ▼
+Generated Runner
+      │
+      ▼
+Single Sandbox
+      │
+      ▼
+JSON Results
+```
+
+This significantly reduces runtime startup overhead.
+
+---
+
+# 🌍 Supported Languages
+
+| Language | Status     |
+| -------- | ---------- |
+| Java     | ✅          |
+| Python   | ✅          |
+| C++      | 🚧 Planned |
+
+---
+
+# 🏗 Architecture
+
+```text
+┌─────────────────────┐
+│ User Submission     │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Language Builder    │
+│ (Java / Python)     │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Generated Runner    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Docker Sandbox      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ JSON Results        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Judge Verdict       │
+└─────────────────────┘
+```
+
+---
+
+# 🔐 Sandbox Security
+
+Every submission runs inside an isolated Docker container.
+
+Current container limits:
+
+| Resource  | Limit     |
+| --------- | --------- |
+| Network   | Disabled  |
+| Memory    | 256 MB    |
+| CPU       | 1 Core    |
+| Processes | 64        |
+| Timeout   | 5 Seconds |
+
+Container configuration:
+
+```bash
+docker run \
+  -d \
+  --network none \
+  --memory 256m \
+  --cpus 1 \
+  --pids-limit 64
+```
+
+### Security Controls
+
+#### 🚫 Network Isolation
+
+```bash
+--network none
+```
+
+Prevents:
+
+* Internet access
+* HTTP requests
+* Socket connections
+* Communication with other containers
+
+---
+
+#### 🧠 Memory Limits
+
+```bash
+--memory 256m
+```
+
+Protects against excessive memory usage and accidental OOM scenarios.
+
+---
+
+#### ⚙️ CPU Limits
+
+```bash
+--cpus 1
+```
+
+Restricts submissions to a single CPU core.
+
+---
+
+#### 🔄 Process Limits
+
+```bash
+--pids-limit 64
+```
+
+Mitigates:
+
+* Fork bombs
+* Excessive subprocess creation
+* Process exhaustion attacks
+
+---
+
+#### ⏱ Execution Timeout
+
+Submissions exceeding the configured timeout receive:
+
+```json
+{
+  "verdict": "TIME_LIMIT_EXCEEDED"
+}
+```
+
+---
+
+# 🚀 Installation
+
+## Requirements
 
 * Python 3.11+
 * Docker Desktop
@@ -98,7 +256,7 @@ git --version
 
 ---
 
-# Clone Repository
+## Clone Repository
 
 ```bash
 git clone https://github.com/lohithreddym4/Typhon.git
@@ -108,9 +266,9 @@ cd Typhon/runner
 
 ---
 
-# Create Virtual Environment
+## Create Virtual Environment
 
-Windows:
+### Windows
 
 ```bash
 python -m venv .venv
@@ -118,7 +276,7 @@ python -m venv .venv
 .venv\Scripts\activate
 ```
 
-Linux/macOS:
+### Linux/macOS
 
 ```bash
 python -m venv .venv
@@ -128,7 +286,7 @@ source .venv/bin/activate
 
 ---
 
-# Install Dependencies
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -136,18 +294,10 @@ pip install -r requirements.txt
 
 ---
 
-# Build Sandbox Images
-
-## Python
+## Build Sandbox Images
 
 ```bash
-docker build -t typhon-python ./sandboxes/python
-```
-
-## Java
-
-```bash
-docker build -t typhon-java ./sandboxes/java
+python scripts/build_sandboxes.py
 ```
 
 Verify:
@@ -165,21 +315,13 @@ typhon-java
 
 ---
 
-# Run Typhon
-
-Start the FastAPI server:
+## Run Typhon
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-API:
-
-```text
-http://localhost:8000
-```
-
-Swagger Documentation:
+Swagger UI:
 
 ```text
 http://localhost:8000/docs
@@ -187,20 +329,105 @@ http://localhost:8000/docs
 
 ---
 
-# Create Submission
+# 📡 API
 
-Endpoint:
+## Function Judge
 
 ```http
-POST /submissions
+POST /judge/function
 ```
 
-Example:
+---
+
+## Example Request
+
+### Java
+
+```json
+{
+  "language": "java",
+  "function_name": "maxProfit",
+  "code": "class Solution { ... }",
+  "test_cases": [
+    {
+      "args": [[7,1,5,3,6,4]],
+      "expected_output": 5,
+      "hidden": false,
+      "arg_types": ["int[]"]
+    }
+  ],
+  "stop_on_failure": false
+}
+```
+
+### Python
 
 ```json
 {
   "language": "python",
-  "code": "print('Hello Typhon')"
+  "function_name": "maxProfit",
+  "code": "class Solution: ...",
+  "test_cases": [
+    {
+      "args": [[7,1,5,3,6,4]],
+      "expected_output": 5,
+      "hidden": false,
+      "arg_types": ["int[]"]
+    }
+  ],
+  "stop_on_failure": false
+}
+```
+
+---
+
+## Example Response
+
+```json
+{
+  "verdict": "ACCEPTED",
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "execution_time_ms": 4825.47,
+  "results": [
+    {
+      "testcase_number": 1,
+      "verdict": "ACCEPTED",
+      "passed": true,
+      "hidden": false,
+      "actual_output": "5",
+      "expected_output": "5",
+      "stdout": "L\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+---
+
+# 🏆 Verdicts
+
+| Verdict             | Description                |
+| ------------------- | -------------------------- |
+| ACCEPTED            | All tests passed           |
+| WRONG_ANSWER        | Output mismatch            |
+| RUNTIME_ERROR       | Runtime exception occurred |
+| COMPILATION_ERROR   | Compilation failed         |
+| TIME_LIMIT_EXCEEDED | Execution timeout          |
+
+---
+
+# 🔒 Hidden Test Cases
+
+Hidden tests execute normally but outputs remain private.
+
+Request:
+
+```json
+{
+  "hidden": true
 }
 ```
 
@@ -208,120 +435,106 @@ Response:
 
 ```json
 {
-  "id": "f4d86f8e-9d7a-4f90-8f58-5f2c8b4b8d76",
-  "status": "QUEUED"
+  "actual_output": null,
+  "expected_output": null
 }
 ```
 
+Useful for:
+
+* Online judges
+* Coding assessments
+* Interview platforms
+
 ---
 
-# Check Submission Status
+# 📄 Stdout & Stderr Capture
 
-Endpoint:
+User output is preserved.
 
-```http
-GET /submissions/{id}
+Example:
+
+```java
+System.out.println("Hello");
 ```
 
-Example Response:
+Response:
 
 ```json
 {
-  "id": "f4d86f8e-9d7a-4f90-8f58-5f2c8b4b8d76",
-  "language": "python",
-  "code": "print('Hello Typhon')",
-  "stdin": "",
-  "status": "COMPLETED",
-  "stdout": "Hello Typhon\n",
-  "stderr": "",
-  "exit_code": 0,
-  "timed_out": false,
-  "elapsed_time_ms": 734.21
+  "stdout": "Hello\n",
+  "stderr": ""
 }
 ```
 
+Useful for debugging and learning environments.
+
 ---
 
-# Python Example
+# 🛑 Stop On Failure
 
-Request:
+Enable early termination:
 
 ```json
 {
-  "language": "python",
-  "code": "name=input()\nprint(f'Hello {name}')",
-  "stdin": "Lohith"
+  "stop_on_failure": true
 }
 ```
 
-Output:
+Typhon immediately stops after the first failed test case.
+
+---
+
+# ⚡ Performance
+
+Typhon executes all test cases inside a **single generated runner** and **single sandbox execution**.
+
+### Benchmark
+
+Local machine:
 
 ```text
-Hello Lohith
+1 testcase      ≈ 3.2s
+10 testcases    ≈ 3.2s
+100 testcases   ≈ 3.2s
+1000 testcases  ≈ 3.4s
 ```
 
----
+Because the interpreter and container start only once, execution time remains nearly constant as test case counts increase.
 
-# Java Example
-
-Request:
-
-```json
-{
-  "language": "java",
-  "code": "import java.util.*; public class Main { public static void main(String[] args) { Scanner sc = new Scanner(System.in); System.out.println(\"Hello \" + sc.nextLine()); } }",
-  "stdin": "Lohith"
-}
-```
-
-Output:
+### Execution Model
 
 ```text
-Hello Lohith
+Submission
+      │
+      ▼
+Generate Runner
+      │
+      ▼
+Create Sandbox
+      │
+      ▼
+Execute All Tests
+      │
+      ▼
+Collect Results
+      │
+      ▼
+Destroy Sandbox
 ```
 
 ---
 
-# Security Model
+# 📜 License
 
-Each submission runs in its own isolated container.
-
-Current Docker restrictions:
-
-```text
---network none
---memory 128m
---cpus 1
---pids-limit 64
-```
-
-This protects against:
-
-* Internet access
-* Memory exhaustion attacks
-* Infinite process spawning
-* Long-running programs
+MIT License
 
 ---
 
-# Current Version
+<p align="center">
+Built with 🐍 Python • ☕ Java • 🐳 Docker
+</p>
 
-Typhon v0.3.0
-
-Capabilities:
-
-* Multi-language execution
-* Docker sandboxing
-* Submission queue
-* Background worker
-* Status tracking
-* Python support
-* Java support
-
----
-
-Built from frustration with Judge0.
-
-Typhon's goal is simple:
-
-**Execute anything. Contain everything.**
+<p align="center">
+Typhon — Fast, secure, function-first code evaluation.
+</p>
