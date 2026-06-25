@@ -3,14 +3,15 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   BookOpen,
+  Compass,
   Gamepad2,
   Home as HomeIcon,
   Hourglass,
   LogOut,
   MessageCircle,
-  PenSquare,
   Settings,
   Shield,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -29,6 +30,12 @@ const mainNavigation = [
       pathname.startsWith("/problems/"),
   },
   { label: "Clans", path: "/clans", icon: Shield },
+  {
+    label: "Aura Farming",
+    path: "/aura-farming",
+    icon: Sparkles,
+    match: ({ pathname }) => pathname === "/aura-farming" || pathname === "/posts",
+  },
   { label: "Time Capsules", path: "/time-capsules", icon: Hourglass },
   { label: "Chat", path: "/chat", icon: MessageCircle },
   {
@@ -112,8 +119,9 @@ export default function AppSidebar({ onClose }) {
         location.pathname.startsWith(`${item.path}/`);
 
   const profileActive = location.pathname === "/profile";
-  const postActive = location.pathname === "/posts";
+  const exploreActive = location.pathname === "/explore";
   const notificationsActive = location.pathname === "/notifications";
+  const settingsActive = location.pathname === "/settings";
   const playerName =
     currentUser.uusername || currentUser.username || "Arena Player";
   const playerXp = Number(currentUser.xp || 0);
@@ -130,11 +138,11 @@ export default function AppSidebar({ onClose }) {
 
       <button
         className={`home-player-summary ${
-          profileActive && !postActive ? "active-home-nav" : ""
+          profileActive && !exploreActive ? "active-home-nav" : ""
         }`}
         type="button"
         aria-label="Open profile"
-        aria-current={profileActive && !postActive ? "page" : undefined}
+        aria-current={profileActive && !exploreActive ? "page" : undefined}
         onClick={() => goTo("/profile")}
       >
         {currentUser.profile_pic ? (
@@ -166,20 +174,22 @@ export default function AppSidebar({ onClose }) {
           );
         })}
         <button
-          className={postActive ? "active-home-nav" : ""}
+          className={exploreActive ? "active-home-nav" : ""}
           type="button"
-          aria-current={postActive ? "page" : undefined}
-          onClick={() => goTo("/posts")}
+          aria-current={exploreActive ? "page" : undefined}
+          onClick={() => goTo("/explore")}
         >
-          <PenSquare size={18} />
-          <span>Post</span>
+          <Compass size={18} />
+          <span>Explore</span>
         </button>
       </nav>
 
       <nav className="home-account-nav" aria-label="Account navigation">
         <span className="home-nav-label">Account</span>
         <button
-          className={notificationsActive ? "active-home-nav" : ""}
+          className={`notifications-nav ${
+            notificationsActive ? "active-home-nav" : ""
+          }`}
           type="button"
           aria-current={notificationsActive ? "page" : undefined}
           onClick={() => goTo("/notifications")}
@@ -193,10 +203,12 @@ export default function AppSidebar({ onClose }) {
           )}
         </button>
         <button
-          className="settings-nav"
+          className={`account-settings-nav ${
+            settingsActive ? "active-home-nav" : ""
+          }`}
           type="button"
-          title="Settings is coming soon"
-          disabled
+          aria-current={settingsActive ? "page" : undefined}
+          onClick={() => goTo("/settings")}
         >
           <Settings size={18} />
           <span>Settings</span>

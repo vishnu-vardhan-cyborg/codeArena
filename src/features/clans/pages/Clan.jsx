@@ -1137,15 +1137,6 @@ export default function Clan({ pageMode = "clans" }) {
                 Create Clan
               </button>
               <button
-                className={
-                  activeView === "aura" ? "active aura-button" : "aura-button"
-                }
-                onClick={() => setActiveView("aura")}
-              >
-                Aura Farming
-                <small>Soon</small>
-              </button>
-              <button
                 className={activeView === "duel" ? "active" : ""}
                 onClick={() => setActiveView("duel")}
               >
@@ -1637,22 +1628,6 @@ export default function Clan({ pageMode = "clans" }) {
                 />
               </label>
               <button onClick={createClan}>Create Clan</button>
-            </section>
-          )}
-
-          {activeView === "aura" && (
-            <section className="aura-placeholder">
-              <span className="clan-eyebrow">Upcoming system</span>
-              <h2>Aura Farming</h2>
-              <p>
-                Aura will reward consistency, support, and challenge completion.
-                The farming rules and progression design will be added later.
-              </p>
-              <div>
-                <span>Daily consistency</span>
-                <span>Team support</span>
-                <span>Challenge milestones</span>
-              </div>
             </section>
           )}
 

@@ -24,10 +24,11 @@ const readCurrentUser = () => {
   }
 };
 
-export default function Posts() {
+export default function Posts({ pageMode = "explore" }) {
   const navigate = useNavigate();
   const [currentUser] = useState(readCurrentUser);
   const currentUserId = currentUser?.id ? String(currentUser.id) : "";
+  const isAuraPage = pageMode === "aura";
 
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -278,12 +279,18 @@ export default function Posts() {
   }
 
   return (
-    <div className="page posts-page">
+    <div className={`page posts-page ${isAuraPage ? "aura-farming-page" : "explore-page"}`}>
       <header className="profile-page-header posts-page-header">
         <div>
-          <span className="profile-eyebrow">Knowledge board</span>
-          <h1>Posts</h1>
-          <p>Share useful discoveries and explore what other players are learning.</p>
+          <span className="profile-eyebrow">
+            {isAuraPage ? "Aura Farming" : "Explore"}
+          </span>
+          <h1>{isAuraPage ? "Aura Farming" : "Explore"}</h1>
+          <p>
+            {isAuraPage
+              ? "Farm aura by sharing useful learning drops and supporting other players."
+              : "Discover useful posts and signals from other CodeArena players."}
+          </p>
         </div>
         <button
           className="profile-create-post-button posts-create-button"
@@ -306,9 +313,15 @@ export default function Posts() {
         <section className="profile-posts-panel posts-feed-panel">
           <div className="profile-panel-heading">
             <div>
-              <span className="profile-eyebrow">Your drops</span>
-              <h2>My Posts</h2>
-              <p>Create, archive, restore, or delete your own posts.</p>
+              <span className="profile-eyebrow">
+                {isAuraPage ? "Your aura drops" : "Your drops"}
+              </span>
+              <h2>{isAuraPage ? "My Aura Posts" : "My Posts"}</h2>
+              <p>
+                {isAuraPage
+                  ? "Create, archive, restore, or delete the posts that build your aura."
+                  : "Create, archive, restore, or delete your own posts."}
+              </p>
             </div>
           </div>
 
@@ -352,8 +365,12 @@ export default function Posts() {
           <div className="profile-panel-heading">
             <div>
               <span className="profile-eyebrow">Explore</span>
-              <h2>Player Signals</h2>
-              <p>Recent public posts from other arena players.</p>
+              <h2>{isAuraPage ? "Aura Signals" : "Player Signals"}</h2>
+              <p>
+                {isAuraPage
+                  ? "Recent public aura drops from other arena players."
+                  : "Recent public posts from other arena players."}
+              </p>
             </div>
             <Compass size={20} />
           </div>

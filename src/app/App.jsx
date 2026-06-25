@@ -13,7 +13,8 @@ import Preview from "../features/preview/pages/Preview";
 import Home from "../features/home/pages/Home";
 import Profile from "../features/profile/pages/Profile";
 import PublicProfile from "../features/profile/pages/PublicProfile";
-import Posts from "../features/posts/pages/Posts";
+import Explore from "../features/explore/pages/Explore";
+import AuraFarming from "../features/auraFarming/pages/AuraFarming";
 import Clan from "../features/clans/pages/Clan";
 import TimeCapsules from "../features/timeCapsules/pages/TimeCapsules";
 import TimeCapsuleDetail from "../features/timeCapsules/pages/TimeCapsuleDetail";
@@ -25,8 +26,11 @@ import LearningPath from "../features/learning/pages/LearningPath";
 import PowerUpHunt from "../features/powerups/pages/PowerUpHunt";
 import SeasonDetails from "../features/learning/pages/SeasonDetails";
 import Notifications from "../features/notifications/pages/Notifications";
+import Settings from "../features/settings/pages/Settings";
 import ThemeToggle from "../shared/components/ThemeToggle";
 import AuthenticatedShell from "../shared/components/AuthenticatedShell";
+import Submissions from "../features/submissions/Submissions";
+import SubmissionDetails from "../features/submissions/SubmissionDetails";
 import "../styles/app/App.css";
 import "../styles/app/Theme.css";
 import "../styles/app/VisualRefresh.css";
@@ -342,12 +346,27 @@ export default function App() {
             </ProtectedShellPage>
           }
         />
+        <Route
+  path="/submissions"
+  element={<Submissions />}
+/>
+
+        <Route path="/posts" element={<Navigate to="/aura-farming" replace />} />
 
         <Route
-          path="/posts"
+          path="/explore"
           element={
             <ProtectedShellPage>
-              <Posts />
+              <Explore />
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
+          path="/aura-farming"
+          element={
+            <ProtectedShellPage>
+              <AuraFarming />
             </ProtectedShellPage>
           }
         />
@@ -367,6 +386,15 @@ export default function App() {
         />
 
         <Route
+          path="/settings"
+          element={
+            <ProtectedShellPage>
+              <Settings />
+            </ProtectedShellPage>
+          }
+        />
+
+        <Route
           path="/clans"
           element={
             <ProtectedShellPage>
@@ -374,7 +402,10 @@ export default function App() {
             </ProtectedShellPage>
           }
         />
-
+<Route
+  path="/submissions/:submissionId"
+  element={<SubmissionDetails />}
+/>
         <Route
           path="/time-capsules"
           element={

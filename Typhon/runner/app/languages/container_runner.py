@@ -14,7 +14,14 @@ class ContainerRunner:
 
         self.executor = DockerExecutor()
 
-    def execute(self, code: str, stdin: str = ""):
+        self.container_id = None
+
+        self.file_path = None
+
+    def start(
+        self,
+        code: str
+    ):
 
         with tempfile.NamedTemporaryFile(
             mode="w",
@@ -24,43 +31,95 @@ class ContainerRunner:
 
             file.write(code)
 
-            file_path = os.path.abspath(file.name)
+            self.file_path = os.path.abspath(
+                file.name
+            )
+
+        self.container_id = (
+            self.executor.create_container(
+                image=self.config.image,
+                source_path=self.file_path,
+                container_path=self.config.container_path
+            )
+        )
+
+        if self.config.compile_command:
+
+            compile_result = (
+                self.executor.exec(
+                    container_id=self.container_id,
+                    command_to_run=self.config.compile_command
+                )
+            )
+
+            if compile_result is None:
+
+                raise RuntimeError(
+                    "Compilation timed out"
+                )
+
+            if compile_result.returncode != 0:
+
+                raise RuntimeError(
+                    compile_result.stderr
+                )
+
+    def execute(
+        self,
+        stdin: str = ""
+    ):
 
         start = time.perf_counter()
 
-        try:
+        result = self.executor.exec(
+            container_id=self.container_id,
+            command_to_run=self.config.run_command,
+            stdin=stdin
+        )
 
-            result = self.executor.run(
-                image=self.config.image,
-                source_path=file_path,
-                command_to_run=self.config.run_command,
-                container_path=self.config.container_path,
-                stdin=stdin
-            )
+        elapsed = (
+            time.perf_counter() - start
+        ) * 1000
 
-            elapsed = (
-                time.perf_counter() - start
-            ) * 1000
-
-            if result is None:
-
-                return ExecutionResult(
-                    stdout="",
-                    stderr="Execution timed out",
-                    exit_code=-1,
-                    timed_out=True,
-                    elapsed_time_ms=round(elapsed, 2)
-                )
+        if result is None:
 
             return ExecutionResult(
-                stdout=result.stdout,
-                stderr=result.stderr,
-                exit_code=result.returncode,
-                timed_out=False,
-                elapsed_time_ms=round(elapsed, 2)
+                stdout="",
+                stderr="Execution timed out",
+                exit_code=-1,
+                timed_out=True,
+                elapsed_time_ms=round(
+                    elapsed,
+                    2
+                )
             )
 
-        finally:
+        return ExecutionResult(
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.returncode,
+            timed_out=False,
+            elapsed_time_ms=round(
+                elapsed,
+                2
+            )
+        )
 
-            if os.path.exists(file_path):
-                os.remove(file_path)
+    def cleanup(self):
+
+        if self.container_id:
+
+            self.executor.destroy_container(
+                self.container_id
+            )
+
+        if (
+            self.file_path
+            and os.path.exists(
+                self.file_path
+            )
+        ):
+
+            os.remove(
+                self.file_path
+            )

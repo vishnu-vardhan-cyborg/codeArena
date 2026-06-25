@@ -509,22 +509,6 @@ export default function TimeCapsuleDetail() {
           <span>{capsule.visibility}</span>
           <strong>{capsule.roomCode || "No code"}</strong>
         </div>
-        {(shieldIsActive || shieldQuantity > 0) && (
-          <div className="capsule-shield-panel">
-            <button
-              type="button"
-              onClick={activateUserShield}
-              disabled={shieldIsActive || shieldBusy}
-            >
-              {shieldIsActive ? "Shield Active" : "Activate Shield"}
-            </button>
-            <small>
-              {shieldIsActive
-                ? `${formatShieldTime(shieldRemainingMs)} remaining`
-                : `${shieldQuantity} shield${shieldQuantity === 1 ? "" : "s"} ready`}
-            </small>
-          </div>
-        )}
       </div>
 
       <section className="capsule-score-strip">
@@ -575,31 +559,54 @@ export default function TimeCapsuleDetail() {
                 </small>
               </span>
               <b>{member.score}</b>
-              {pendingDefense ? (
-              <button
-                className="capsule-defend-button"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  defendAttack(pendingDefense);
-                }}
-              >
-                Defend
-              </button>
+              {member.userId === currentUserId ? (
+                (shieldIsActive || shieldQuantity > 0) && (
+                  <div className="capsule-row-shield">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        activateUserShield();
+                      }}
+                      disabled={shieldIsActive || shieldBusy}
+                    >
+                      {shieldIsActive
+                        ? "Shield Active"
+                        : shieldBusy
+                          ? "Activating"
+                          : "Activate Shield"}
+                    </button>
+                    <small>
+                      {shieldIsActive
+                        ? `${formatShieldTime(shieldRemainingMs)} remaining`
+                        : `${shieldQuantity} shield${shieldQuantity === 1 ? "" : "s"} ready`}
+                    </small>
+                  </div>
+                )
+              ) : pendingDefense ? (
+                <button
+                  className="capsule-defend-button"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    defendAttack(pendingDefense);
+                  }}
+                >
+                  Defend
+                </button>
               ) : (
-              member.userId !== currentUserId && (
-              <button
-                className="capsule-attack-button"
-                type="button"
-                disabled={attackingUserId === member.userId}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openAttackModal(member);
-                }}
-              >
-                Attack
-              </button>
-              ))}
+                <button
+                  className="capsule-attack-button"
+                  type="button"
+                  disabled={attackingUserId === member.userId}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openAttackModal(member);
+                  }}
+                >
+                  Attack
+                </button>
+              )}
             </div>
             );
           })}
