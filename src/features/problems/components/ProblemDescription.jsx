@@ -1,181 +1,142 @@
 import { useState } from "react";
+import {
+  BookOpen,
+  CheckCircle2,
+  CircleAlert,
+  History,
+  Star,
+  Tag,
+} from "lucide-react";
 import SubmissionHistory from "./SubmissionHistory";
+
 export default function ProblemDescription({
-  problem,submissionRefreshKey,problemStatus
+  problem,
+  submissionRefreshKey,
+  problemStatus,
 }) {
   const [tab, setTab] = useState("description");
 
   return (
+    <aside className="problem-description">
+      <div className="problem-description-tabs" role="tablist" aria-label="Problem sections">
+        <button
+          type="button"
+          className={`problem-tab-button ${tab === "description" ? "active" : ""}`}
+          onClick={() => setTab("description")}
+        >
+          <BookOpen size={16} />
+          Description
+        </button>
 
-<div className="problem-description">
-  <div
-  style={{
-    display: "flex",
-    gap: "12px",
-    marginBottom: "20px",
-  }}
->
-  <button
-    onClick={() =>
-      setTab("description")
-    }
-  >
-    Description
-  </button>
+        <button
+          type="button"
+          className={`problem-tab-button ${tab === "submissions" ? "active" : ""}`}
+          onClick={() => setTab("submissions")}
+        >
+          <History size={16} />
+          Submissions
+        </button>
+      </div>
 
-  <button
-    onClick={() =>
-      setTab("submissions")
-    }
-  >
-    Submissions
-  </button>
-</div>
-{tab === "description" && (
-  <>
-   <DescComp problem={problem} problemStatus={problemStatus}/>
-  </>
-)}
+      {tab === "description" && (
+        <DescriptionContent problem={problem} problemStatus={problemStatus} />
+      )}
 
-{tab === "submissions" && (
-  <SubmissionHistory
-    problemId={problem.id}
-    refreshKey={
-    submissionRefreshKey
-  }
-  />
-)}
-
-   
-    </div>
+      {tab === "submissions" && (
+        <SubmissionHistory problemId={problem.id} refreshKey={submissionRefreshKey} />
+      )}
+    </aside>
   );
 }
 
-const DescComp=({problem,problemStatus})=>{
+function DescriptionContent({ problem, problemStatus }) {
+  const difficulty = (problem.difficulty || "").toLowerCase();
 
-return (<>
-<div
-  style={{
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-  }}
->
-  <h1>{problem.title}</h1>
+  return (
+    <div className="problem-description-content">
+      <div className="problem-title-row">
+        <h1 className="problem-title">{problem.title}</h1>
 
-  {problemStatus ===
-    "SOLVED" && (
-    <span>
-      ✅ Solved
-    </span>
-  )}
+        {problemStatus === "SOLVED" && (
+          <span className="problem-status-badge solved">
+            <CheckCircle2 size={15} />
+            Solved
+          </span>
+        )}
 
-  {problemStatus ===
-    "ATTEMPTED" && (
-    <span>
-      🟡 Attempted
-    </span>
-  )}
-</div>
+        {problemStatus === "ATTEMPTED" && (
+          <span className="problem-status-badge attempted">
+            <CircleAlert size={15} />
+            Attempted
+          </span>
+        )}
+      </div>
 
-      <div className="flex gap-2 mt-2">
-
-        <span>
+      <div className="problem-meta-row">
+        <span className={`problem-difficulty-badge ${difficulty}`}>
           {problem.difficulty}
         </span>
 
-        <span>
-          ⭐ {problem.xp_reward}
+        <span className="problem-xp-badge">
+          <Star size={15} />
+          {problem.xp_reward} XP
         </span>
-
       </div>
 
-      <div className="mt-4">
-
-        {problem.topics?.map(
-          topic => (
-            <span
-              key={topic}
-              className="
-                bg-zinc-800
-                px-2
-                py-1
-                rounded
-                mr-2
-              "
-            >
+      {problem.topics?.length > 0 && (
+        <div className="problem-topic-list" aria-label="Problem topics">
+          {problem.topics.map((topic) => (
+            <span key={topic} className="problem-topic-pill">
+              <Tag size={13} />
               {topic}
             </span>
-          )
-        )}
+          ))}
+        </div>
+      )}
 
-      </div>
+      <p className="problem-statement">{problem.description}</p>
 
-      <p className="mt-5">
-        {problem.description}
-      </p>
+      {problem.constraints?.length > 0 && (
+        <section className="problem-section">
+          <h2 className="problem-section-title">Constraints</h2>
+          <ul className="problem-constraints">
+            {problem.constraints.map((constraint) => (
+              <li key={constraint}>{constraint}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-      <h3 className="mt-6 font-bold">
-        Constraints
-      </h3>
+      {problem.examples?.length > 0 && (
+        <section className="problem-section">
+          <h2 className="problem-section-title">Examples</h2>
 
-      <ul>
+          <div className="problem-examples">
+            {problem.examples.map((example, index) => (
+              <article key={index} className="problem-example-card">
+                <div className="problem-example-label">Example {index + 1}</div>
 
-        {
-          problem.constraints?.map(
-            c => (
-              <li key={c}>
-                {c}
-              </li>
-            )
-          )
-        }
+                <div className="problem-example-block">
+                  <span>Input</span>
+                  <pre>{example.input}</pre>
+                </div>
 
-      </ul>
+                <div className="problem-example-block">
+                  <span>Output</span>
+                  <pre>{example.output}</pre>
+                </div>
 
-      <h3 className="mt-6 font-bold">
-        Examples
-      </h3>
-
-      {
-        problem.examples?.map(
-          (e,index)=>(
-            <div
-              key={index}
-              className="
-                bg-zinc-900
-                p-4
-                rounded
-                mt-3
-              "
-            >
-              <pre>
-                Input:
-                {"\n"}
-                {e.input}
-              </pre>
-
-              <pre>
-                Output:
-                {"\n"}
-                {e.output}
-              </pre>
-
-              {
-                e.explanation &&
-                (
-                  <pre>
-                    Explanation:
-                    {"\n"}
-                    {e.explanation}
-                  </pre>
-                )
-              }
-
-            </div>
-          )
-        )
-      }
-
-</>)
+                {example.explanation && (
+                  <div className="problem-example-block">
+                    <span>Explanation</span>
+                    <pre>{example.explanation}</pre>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }

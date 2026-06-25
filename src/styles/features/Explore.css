@@ -1,0 +1,328 @@
+.explore-page {
+  min-height: 100vh;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  width: min(1180px, calc(100vw - 42px));
+  margin: 0 auto;
+  padding: 26px 0 60px;
+}
+
+.explore-page button {
+  font: inherit;
+}
+
+.explore-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: clamp(18px, 2vw, 24px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(12, 14, 18, 0.82);
+  color: #f6f7f9;
+}
+
+.explore-page-header h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.explore-page-header p {
+  max-width: 620px;
+  margin: 0;
+  color: #aeb7c2;
+  line-height: 1.6;
+}
+
+.explore-eyebrow,
+.explore-rank-card span,
+.explore-card small {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #dfe3e9;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.explore-rank-card {
+  min-width: 190px;
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.explore-rank-card svg {
+  color: #f4c95d;
+}
+
+.explore-rank-card strong {
+  color: #fff;
+  font-size: 16px;
+}
+
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.explore-card {
+  min-width: 0;
+  min-height: 158px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(12, 14, 18, 0.78);
+  color: #f6f7f9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.explore-card:hover {
+  border-color: rgba(244, 201, 93, 0.5);
+  background:
+    linear-gradient(145deg, rgba(244, 201, 93, 0.12), rgba(255, 255, 255, 0.035)),
+    rgba(12, 14, 18, 0.86);
+}
+
+.explore-card-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(232, 235, 239, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4c95d;
+}
+
+.explore-card > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.explore-card strong {
+  color: #fff;
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.explore-card em {
+  color: #aeb7c2;
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.college-ranking-panel {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  padding: clamp(18px, 2vw, 24px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.025)),
+    rgba(12, 14, 18, 0.8);
+  color: #f6f7f9;
+}
+
+.college-ranking-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, auto);
+  align-items: end;
+  gap: 18px;
+}
+
+.college-ranking-heading h2 {
+  margin: 8px 0 6px;
+  color: #fff;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.college-ranking-heading p {
+  max-width: 620px;
+  margin: 0;
+  color: #aeb7c2;
+  line-height: 1.6;
+}
+
+.college-ranking-summary {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+  border: 1px solid rgba(244, 201, 93, 0.24);
+  border-radius: 8px;
+  padding: 13px 14px;
+  background:
+    linear-gradient(145deg, rgba(244, 201, 93, 0.13), rgba(255, 255, 255, 0.045));
+}
+
+.college-ranking-summary span {
+  max-width: 240px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  color: #ffe9a3;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.college-ranking-summary strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.college-ranking-summary small {
+  color: #aeb7c2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.college-ranking-state {
+  margin: 0;
+  border: 1px dashed rgba(232, 235, 239, 0.2);
+  border-radius: 8px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #aeb7c2;
+  font-weight: 800;
+}
+
+.college-ranking-state.error {
+  border-color: rgba(255, 115, 102, 0.5);
+  background: rgba(255, 115, 102, 0.1);
+  color: #ffb3aa;
+}
+
+.college-ranking-list {
+  display: grid;
+  gap: 10px;
+}
+
+.college-ranking-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(78px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 8px;
+  padding: 15px 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+    rgba(255, 255, 255, 0.045);
+}
+
+.college-ranking-row > strong {
+  color: #f4c95d;
+  font-size: 18px;
+}
+
+.college-ranking-name {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.college-ranking-name b {
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 16px;
+}
+
+.college-ranking-name small {
+  overflow-wrap: anywhere;
+  color: #aeb7c2;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.college-ranking-members {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid rgba(89, 211, 198, 0.28);
+  border-radius: 999px;
+  padding: 0 11px;
+  background: rgba(89, 211, 198, 0.09);
+  color: #9df5ec;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.college-ranking-row > b {
+  color: #ffe9a3;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .explore-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .college-ranking-heading,
+  .college-ranking-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .college-ranking-summary {
+    justify-items: start;
+  }
+
+  .college-ranking-summary span {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .college-ranking-members {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 680px) {
+  .explore-page {
+    width: calc(100vw - 28px);
+    padding-top: 14px;
+  }
+
+  .explore-page-header {
+    grid-template-columns: 1fr;
+  }
+
+  .explore-rank-card {
+    justify-items: start;
+  }
+
+  .explore-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -200,13 +200,29 @@
   border-top: 1px solid #2a4148;
 }
 
+.home-account-nav .home-nav-label {
+  order: 0;
+}
+
+.home-account-nav .notifications-nav {
+  order: 1;
+}
+
+.home-account-nav .account-settings-nav {
+  order: 2;
+}
+
+.home-account-nav .logout-nav {
+  order: 3;
+}
+
 .home-account-nav .logout-nav {
   color: #ff9c90;
 }
 
-.home-account-nav .settings-nav {
-  color: #819397;
-  cursor: not-allowed;
+.home-account-nav .account-settings-nav {
+  color: inherit;
+  cursor: pointer;
 }
 
 .home-notification-badge {

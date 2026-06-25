@@ -19,6 +19,7 @@ const PROFILE_TYPE_LABELS = {
   vibe_coder: "Vibe coder",
 };
 const TABLE_MISSING_CODES = new Set(["42P01", "PGRST205"]);
+const DEFAULT_PROFILE_VISIBILITY = "Public";
 
 const getInitialUser = () => {
   try {
@@ -53,6 +54,9 @@ export default function PublicProfile() {
     isFollowing: false,
     requestPending: false,
   });
+  const [profileVisibility, setProfileVisibility] = useState(
+    DEFAULT_PROFILE_VISIBILITY
+  );
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -88,6 +92,7 @@ export default function PublicProfile() {
       requestResult,
       postResult,
       postCountResult,
+      settingsResult,
     ] = await Promise.all([
       supabase.from("friends").select("*"),
       supabase
@@ -120,6 +125,11 @@ export default function PublicProfile() {
         .select("*", { count: "exact", head: true })
         .eq("user_id", targetUserId)
         .is("archived_at", null),
+      supabase
+        .from("user_settings")
+        .select("preferences")
+        .eq("user_id", targetUserId)
+        .maybeSingle(),
     ]);
 
     const friendRows = friendResult.data || [];
@@ -151,6 +161,10 @@ export default function PublicProfile() {
         )
       ),
     });
+    setProfileVisibility(
+      settingsResult.data?.preferences?.privacy?.profileVisibility ||
+        DEFAULT_PROFILE_VISIBILITY
+    );
     setLoading(false);
   }, [currentUserId, navigate, targetUserId]);
 
@@ -265,6 +279,31 @@ export default function PublicProfile() {
       : profile.profile_type === "employee"
       ? profile.organization_name
       : "";
+  const profileIsHidden =
+    profileVisibility === "Private" ||
+    (profileVisibility === "Friends only" && !relation.isFriend);
+
+  if (profileIsHidden) {
+    return (
+      <div className="page public-profile-page">
+        <section className="public-profile-card">
+          <div className="public-profile-identity">
+            <img src={profile.profile_pic || DEFAULT_AVATAR} alt="" />
+            <div>
+              <span className="profile-eyebrow">Private profile</span>
+              <h2>{displayName}</h2>
+              <p>
+                {profileVisibility === "Friends only"
+                  ? "This player shares profile details with friends only."
+                  : "This player keeps their profile private."}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const profileMetaItems = [
     {
       label: "Country",

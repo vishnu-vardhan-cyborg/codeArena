@@ -2437,7 +2437,8 @@
   font-weight: 900;
 }
 
-.capsule-shield-panel {
+.capsule-shield-panel,
+.capsule-row-shield {
   display: grid;
   gap: 6px;
   justify-items: end;
@@ -2445,6 +2446,7 @@
 }
 
 .capsule-shield-panel button,
+.capsule-row-shield button,
 .capsule-attack-modal-actions button,
 .capsule-attack-modal select {
   border: 1px solid rgba(244, 201, 93, 0.5);
@@ -2462,15 +2464,34 @@
   text-transform: uppercase;
 }
 
-.capsule-shield-panel button:disabled {
+.capsule-row-shield {
+  grid-area: attack;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.capsule-row-shield button {
+  min-height: 32px;
+  min-width: 122px;
+  max-width: 100%;
+  padding: 0 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.capsule-shield-panel button:disabled,
+.capsule-row-shield button:disabled {
   cursor: default;
   opacity: 0.78;
 }
 
-.capsule-shield-panel small {
+.capsule-shield-panel small,
+.capsule-row-shield small {
   color: #aeb7c2;
   font-size: 11px;
   font-weight: 800;
+  text-align: right;
 }
 
 .capsule-detail-page .capsule-defend-button {
@@ -2593,7 +2614,7 @@
 }
 
 .capsule-detail-page .capsule-detail-header {
-  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
 }
 
 .capsule-detail-page .capsule-leaderboard-panel,
@@ -2638,7 +2659,8 @@
   text-align: right;
 }
 
-.capsule-detail-page .capsule-attack-button {
+.capsule-detail-page .capsule-attack-button,
+.capsule-detail-page .capsule-row-shield {
   grid-area: attack;
   justify-self: end;
   min-width: 88px;
@@ -2662,7 +2684,16 @@
     grid-template-columns: 1fr !important;
   }
 
-  .capsule-shield-panel {
+  .capsule-shield-panel,
+  .capsule-row-shield {
     justify-items: start;
+  }
+
+  .capsule-row-shield {
+    justify-self: start;
+  }
+
+  .capsule-row-shield small {
+    text-align: left;
   }
 }

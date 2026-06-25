@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useEffect } from "react";
+import { Play, RotateCcw, Send } from "lucide-react";
 import { supabase } from "../../../shared/services/supabase";
-
 
 export default function CodeEditor({
   problem,
@@ -12,107 +12,88 @@ export default function CodeEditor({
   runCode,
   submitCode,
   running,
-  loadDraft
+  loadDraft,
 }) {
-useEffect(() => {
-  if (!problem) return;
+  useEffect(() => {
+    if (!problem) return;
 
-  const user = JSON.parse(
-    localStorage.getItem("loggedInUser") || "{}"
-  );
+    const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
 
-  if (!user.username) return;
+    if (!user.username) return;
 
-  const timer = setTimeout(async () => {
-    await supabase
-      .from("user_code_drafts")
-      .upsert({
+    const timer = setTimeout(async () => {
+      await supabase.from("user_code_drafts").upsert({
         user_id: user.username,
         problem_id: problem.id,
         language,
         code,
         updated_at: new Date().toISOString(),
       });
-  }, 2000);
+    }, 2000);
 
-  return () => clearTimeout(timer);
-}, [code, language, problem]);
+    return () => clearTimeout(timer);
+  }, [code, language, problem]);
+
+  async function handleLanguageChange(event) {
+    const lang = event.target.value;
+
+    setLanguage(lang);
+    await loadDraft(problem, lang);
+  }
+
   return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div
-        style={{
-          height: "50px",
-          borderBottom: "1px solid #27272a",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "0 12px",
-          background: "#18181b",
-        }}
-      >
-        <select
-          value={language}
-onChange={async (e) => {
-  const lang = e.target.value;
+    <section className="code-editor-shell">
+      <header className="editor-toolbar">
+        <label className="language-picker">
+          <span>Language</span>
+          <select
+            className="language-select"
+            value={language}
+            onChange={handleLanguageChange}
+          >
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+          </select>
+        </label>
 
-  setLanguage(lang);
-
-  await loadDraft(problem, lang);
-}}
-        >
-          <option value="python">
-            Python
-          </option>
-
-          <option value="java">
-            Java
-          </option>
-        </select>
-
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-          }}
-        >
+        <div className="editor-actions">
           <button
+            type="button"
+            className="editor-action-button run-btn"
             onClick={runCode}
             disabled={running}
           >
-            {running
-              ? "Running..."
-              : "Run"}
+            <Play size={16} />
+            {running ? "Running" : "Run"}
           </button>
 
           <button
+            type="button"
+            className="editor-action-button reset-btn"
+          >
+            <RotateCcw size={16} />
+            Reset
+          </button>
+
+          <button
+            type="button"
+            className="editor-action-button submit-btn"
             onClick={submitCode}
             disabled={running}
           >
+            <Send size={16} />
             Submit
           </button>
         </div>
-      </div>
+      </header>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
+      <div className="monaco-editor-frame">
         <Editor
           height="100%"
           language={language}
           value={code}
           theme="vs-dark"
-          onChange={(value) =>
-            setCode(value || "")
-          }
+          onChange={(value) => setCode(value || "")}
           options={{
             minimap: {
               enabled: false,
@@ -123,6 +104,6 @@ onChange={async (e) => {
           }}
         />
       </div>
-    </div>
+    </section>
   );
 }

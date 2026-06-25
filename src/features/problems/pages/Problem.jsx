@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { supabase } from "../../../shared/services/supabase";
@@ -30,48 +30,66 @@ export default function Problem() {
 
   const [running, setRunning] = useState(false);
 
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const loadProblemStatus = useCallback(async (currentProblemId) => {
+    const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
 
-  const loggedInUser = JSON.parse(
-    localStorage.getItem("loggedInUser") || "{}"
-  );
+    if (!user.username) {
+      setProblemStatus("NOT_STARTED");
+      return;
+    }
+
+    const { data } = await supabase
+      .from("user_problem_progress")
+      .select("*")
+      .eq("user_id", user.username)
+      .eq("problem_id", currentProblemId)
+      .maybeSingle();
+
+    if (!data) {
+      setProblemStatus("NOT_STARTED");
+      return;
+    }
+
+    setProblemStatus(data.solved_at ? "SOLVED" : "ATTEMPTED");
+  }, []);
+
+  const loadDraft = useCallback(async (problemData, lang) => {
+    const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+
+    if (!user.username) {
+      setCode(problemData.starter_code?.[lang] || "");
+      return;
+    }
+
+    const { data } = await supabase
+      .from("user_code_drafts")
+      .select("code")
+      .eq("user_id", user.username)
+      .eq("problem_id", problemData.id)
+      .eq("language", lang)
+      .maybeSingle();
+
+    setCode(data?.code || problemData.starter_code?.[lang] || "");
+  }, []);
+
+  const loadProblem = useCallback(async () => {
+    const { data } = await supabase
+      .from("problems")
+      .select("*")
+      .eq("id", problemId)
+      .single();
+
+    if (!data) return;
+
+    setProblem(data);
+    await loadDraft(data, "python");
+    await loadProblemStatus(data.id);
+  }, [loadDraft, loadProblemStatus, problemId]);
 
   useEffect(() => {
     loadProblem();
-    
-  }, [problemId]);
+  }, [loadProblem]);
 
-  async function loadProblemStatus(
-  problemId
-) {
-  const user = JSON.parse(
-    localStorage.getItem(
-      "loggedInUser"
-    )
-  );
-
-  const { data } = await supabase
-    .from("user_problem_progress")
-    .select("*")
-    .eq("user_id", user.username)
-    .eq("problem_id", problemId)
-    .maybeSingle();
-
-  if (!data) {
-    setProblemStatus(
-      "NOT_STARTED"
-    );
-    return;
-  }
-
-  if (data.solved_at) {
-    setProblemStatus("SOLVED");
-  } else {
-    setProblemStatus(
-      "ATTEMPTED"
-    );
-  }
-}
   async function updateUserProgress(
   userId,
   submissionId,
@@ -141,47 +159,6 @@ export default function Problem() {
     .eq("problem_id", problem.id);
 }
 
-  async function loadProblem() {
-    const { data } = await supabase
-      .from("problems")
-      .select("*")
-      .eq("id", problemId)
-      .single();
-
-    setProblem(data);
-
-    await loadDraft(data, "python");
-    await loadProblemStatus(
-  data.id
-);
-  }
-
-  async function loadDraft(problemData, lang) {
-    const user = JSON.parse(
-      localStorage.getItem("loggedInUser") || "{}"
-    );
-
-    if (!user.username) {
-      setCode(problemData.starter_code?.[lang] || "");
-      return;
-    }
-
-    const { data } = await supabase
-      .from("user_code_drafts")
-      .select("code")
-      .eq("user_id", user.username)
-      .eq("problem_id", problemData.id)
-      .eq("language", lang)
-      .maybeSingle();
-
-    if (data?.code) {
-      setCode(data.code);
-    } else {
-      setCode(
-        problemData.starter_code?.[lang] || ""
-      );
-    }
-  }
   async function runCode() {
     setRunning(true);
 
@@ -309,46 +286,46 @@ async function submitCode() {
   }
 }
 
-  if (!problem) return <div>Loading...</div>;
+  if (!problem) {
+    return (
+      <div className="problem-page problem-loading-state">
+        Loading problem...
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="problem-page"
-      style={{
-        height: "100vh",
-      }}>
-      <Group orientation="horizontal">
-        <Panel defaultSize={45}>
-          <ProblemDescription problem={problem} 
-          problemStatus={problemStatus}
-          submissionRefreshKey={
-    submissionRefreshKey
-  }/>
+    <div className="problem-page">
+      <Group orientation="horizontal" className="problem-layout">
+        <Panel defaultSize={45} minSize={32} className="problem-left-panel">
+          <ProblemDescription
+            problem={problem}
+            problemStatus={problemStatus}
+            submissionRefreshKey={submissionRefreshKey}
+          />
         </Panel>
 
-        <Separator />
+        <Separator className="problem-resize-handle horizontal" />
 
-        <Panel defaultSize={55}>
-          <Group orientation="vertical">
-            <Panel defaultSize={72}>
-              <div style={{ height: "100%" }}>
-                <CodeEditor
-                  problem={problem}
-                  language={language}
-                  setLanguage={setLanguage}
-                  code={code}
-                  setCode={setCode}
-                  runCode={runCode}
-                  submitCode={submitCode}
-                  running={running}
-                  loadDraft={loadDraft}
-                />
-              </div>
+        <Panel defaultSize={55} minSize={38} className="problem-right-panel">
+          <Group orientation="vertical" className="problem-editor-stack">
+            <Panel defaultSize={72} minSize={45} className="problem-editor-panel">
+              <CodeEditor
+                problem={problem}
+                language={language}
+                setLanguage={setLanguage}
+                code={code}
+                setCode={setCode}
+                runCode={runCode}
+                submitCode={submitCode}
+                running={running}
+                loadDraft={loadDraft}
+              />
             </Panel>
 
-            <Separator />
+            <Separator className="problem-resize-handle vertical" />
 
-            <Panel defaultSize={28}>
+            <Panel defaultSize={28} minSize={18} className="problem-output-panel">
               <BottomPanel
                 problem={problem}
                 runResult={runResult}

@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Camera,
+  Compass,
+  FileText,
   ImagePlus,
-  PenSquare,
   Save,
   X,
 } from "lucide-react";
 import CareerLoadoutPanel from "../../../shared/components/CareerLoadoutPanel";
-import { COUNTRIES } from "../../../shared/data/countries";
 import {
   buildCareerStats,
   buildMomentumPoints,
@@ -26,7 +26,6 @@ import "../../../styles/features/Profile.css";
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
 const PROFILE_PICS_BUCKET = "profilepics";
 const CALENDAR_WEEKS = 16;
-const GENDER_OPTIONS = ["Male", "Female", "Prefer not to say"];
 const PROFILE_TYPE_OPTIONS = [
   { value: "student", label: "Student" },
   { value: "employee", label: "Employee" },
@@ -131,6 +130,12 @@ const getActivityLevel = (count) => {
   return 4;
 };
 
+const formatSubmissionStatus = (status = "") =>
+  String(status || "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Pending";
+
 export default function Profile() {
   const navigate = useNavigate();
   const [currentUser] = useState(() => {
@@ -141,6 +146,7 @@ export default function Profile() {
     }
   });
   const currentUserId = currentUser?.id ? String(currentUser.id) : "";
+  const currentUserSubmissionKey = currentUser?.username || currentUserId;
 
   const [profile, setProfile] = useState(null);
   const [friends, setFriends] = useState([]);
@@ -148,14 +154,14 @@ export default function Profile() {
   const [followingCount, setFollowingCount] = useState(0);
   const [postCount, setPostCount] = useState(0);
   const [activity, setActivity] = useState([]);
+  const [submissionSummary, setSubmissionSummary] = useState({
+    total: 0,
+    recentProblems: [],
+    loading: true,
+  });
   const [networkView, setNetworkView] = useState("");
   const [editedName, setEditedName] = useState("");
-  const [editedGender, setEditedGender] = useState("");
-  const [editedCountry, setEditedCountry] = useState("India");
   const [editedBio, setEditedBio] = useState("");
-  const [editedProfileType, setEditedProfileType] = useState("");
-  const [editedCollegeName, setEditedCollegeName] = useState("");
-  const [editedOrganizationName, setEditedOrganizationName] = useState("");
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditorSaving, setProfileEditorSaving] = useState(false);
   const [cropPreviewUrl, setCropPreviewUrl] = useState("");
@@ -180,12 +186,7 @@ export default function Profile() {
 
     setProfile(data);
     setEditedName(data?.uusername || "");
-    setEditedGender(data?.gender || "");
-    setEditedCountry(data?.country || "India");
     setEditedBio(data?.bio || "");
-    setEditedProfileType(data?.profile_type || "");
-    setEditedCollegeName(data?.college_name || "");
-    setEditedOrganizationName(data?.organization_name || "");
   }, [currentUser?.id]);
 
   const loadFriends = useCallback(async () => {
@@ -282,6 +283,72 @@ export default function Profile() {
     setPostCount(postCountResult.count || 0);
   }, [currentUserId]);
 
+  const loadSubmissionSummary = useCallback(async () => {
+    if (!currentUserSubmissionKey) return;
+
+    setSubmissionSummary((current) => ({
+      ...current,
+      loading: true,
+    }));
+
+    const [countResult, recentResult] = await Promise.all([
+      supabase
+        .from("problem_submissions")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", currentUserSubmissionKey),
+      supabase
+        .from("problem_submissions")
+        .select(
+          `
+          id,
+          problem_id,
+          status,
+          language,
+          runtime_ms,
+          created_at,
+          problems (
+            id,
+            title,
+            difficulty
+          )
+        `
+        )
+        .eq("user_id", currentUserSubmissionKey)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    if (countResult.error || recentResult.error) {
+      setSubmissionSummary({
+        total: 0,
+        recentProblems: [],
+        loading: false,
+      });
+      return;
+    }
+
+    const seenProblems = new Set();
+    const recentProblems = [];
+
+    (recentResult.data || []).forEach((submission) => {
+      const problemKey =
+        submission.problem_id || submission.problems?.id || submission.id;
+
+      if (seenProblems.has(problemKey) || recentProblems.length >= 5) {
+        return;
+      }
+
+      seenProblems.add(problemKey);
+      recentProblems.push(submission);
+    });
+
+    setSubmissionSummary({
+      total: countResult.count || 0,
+      recentProblems,
+      loading: false,
+    });
+  }, [currentUserSubmissionKey]);
+
   useEffect(() => {
     if (!currentUserId) {
       navigate("/login", { replace: true });
@@ -292,12 +359,14 @@ export default function Profile() {
     loadFriends();
     loadActivity();
     loadSocial();
+    loadSubmissionSummary();
   }, [
     currentUserId,
     loadActivity,
     loadFriends,
     loadProfile,
     loadSocial,
+    loadSubmissionSummary,
     navigate,
   ]);
 
@@ -374,12 +443,7 @@ export default function Profile() {
 
   const openProfileEditor = () => {
     setEditedName(profile.uusername || "");
-    setEditedGender(profile.gender || "");
-    setEditedCountry(profile.country || "India");
     setEditedBio(profile.bio || "");
-    setEditedProfileType(profile.profile_type || "");
-    setEditedCollegeName(profile.college_name || "");
-    setEditedOrganizationName(profile.organization_name || "");
     resetCrop();
     setProfileEditorOpen(true);
   };
@@ -412,43 +476,10 @@ export default function Profile() {
 
   const handleProfileSave = async () => {
     const newName = editedName.trim();
-    const newGender = editedGender.trim();
-    const newCountry = editedCountry.trim();
     const newBio = editedBio.trim();
-    const newProfileType = editedProfileType.trim();
-    const newCollegeName = editedCollegeName.trim();
-    const newOrganizationName = editedOrganizationName.trim();
 
     if (!newName) {
       showAppToast("Name cannot be empty", "error");
-      return;
-    }
-
-    if (!newCountry) {
-      showAppToast("Country cannot be empty", "error");
-      return;
-    }
-
-    if (newGender && !GENDER_OPTIONS.includes(newGender)) {
-      showAppToast("Choose a valid gender option", "error");
-      return;
-    }
-
-    if (
-      newProfileType &&
-      !PROFILE_TYPE_OPTIONS.some((option) => option.value === newProfileType)
-    ) {
-      showAppToast("Choose a valid profile type", "error");
-      return;
-    }
-
-    if (newProfileType === "student" && !newCollegeName) {
-      showAppToast("College name is required for student profiles", "error");
-      return;
-    }
-
-    if (newProfileType === "employee" && !newOrganizationName) {
-      showAppToast("Organization is required for employee profiles", "error");
       return;
     }
 
@@ -527,14 +558,7 @@ export default function Profile() {
 
     const updates = {
       uusername: newName,
-      gender: newGender || null,
-      country: newCountry,
       bio: newBio || null,
-      profile_type: newProfileType || null,
-      college_name:
-        newProfileType === "student" ? newCollegeName || null : null,
-      organization_name:
-        newProfileType === "employee" ? newOrganizationName || null : null,
       profile_pic: profileUrl,
     };
 
@@ -573,12 +597,7 @@ export default function Profile() {
         ...currentUser,
         uusername: data.uusername,
         profile_pic: data.profile_pic,
-        gender: data.gender,
-        country: data.country,
         bio: data.bio,
-        profile_type: data.profile_type,
-        college_name: data.college_name,
-        organization_name: data.organization_name,
       })
     );
     showAppToast("Profile updated", "success");
@@ -598,10 +617,6 @@ export default function Profile() {
   });
   const radarPoints = buildRadarPoints(careerStats.axes);
   const momentumPoints = buildMomentumPoints(careerStats.momentum);
-  const countryOptions =
-    editedCountry && !COUNTRIES.includes(editedCountry)
-      ? [editedCountry, ...COUNTRIES]
-      : COUNTRIES;
   const identitySlot = (
     <section className="profile-identity-card">
       <div className="profile-identity-main">
@@ -624,10 +639,10 @@ export default function Profile() {
           <button
             className="profile-secondary-button"
             type="button"
-            onClick={() => navigate("/posts")}
+            onClick={() => navigate("/explore")}
           >
-            <PenSquare size={17} />
-            Posts
+            <Compass size={17} />
+            Explore
           </button>
         </div>
       </div>
@@ -839,6 +854,57 @@ export default function Profile() {
               </div>
             </div>
           </section>
+
+          <section className="profile-submissions-panel">
+            <button
+              type="button"
+              className="profile-submissions-total"
+              onClick={() => navigate("/submissions")}
+            >
+              <span>
+                <FileText size={16} />
+                Total submissions
+              </span>
+              <strong>{submissionSummary.total}</strong>
+              <small>Open submissions page</small>
+            </button>
+
+            <div className="profile-recent-submissions">
+              <div className="profile-panel-heading">
+                <div>
+                  <span className="profile-eyebrow">Latest attempts</span>
+                  <h2>Recents</h2>
+                </div>
+              </div>
+
+              {submissionSummary.loading ? (
+                <p className="profile-empty">Loading recent submissions...</p>
+              ) : submissionSummary.recentProblems.length === 0 ? (
+                <p className="profile-empty">No submissions yet.</p>
+              ) : (
+                <div className="profile-submission-list">
+                  {submissionSummary.recentProblems.map((submission) => (
+                    <button
+                      type="button"
+                      key={submission.id}
+                      onClick={() => navigate(`/submissions/${submission.id}`)}
+                    >
+                      <span>
+                        <strong>
+                          {submission.problems?.title || "Untitled problem"}
+                        </strong>
+                        <small>
+                          {submission.language || "Unknown language"} -{" "}
+                          {new Date(submission.created_at).toLocaleDateString()}
+                        </small>
+                      </span>
+                      <b>{formatSubmissionStatus(submission.status)}</b>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
         </aside>
       </div>
 
@@ -952,79 +1018,6 @@ export default function Profile() {
                     disabled={profileEditorSaving}
                   />
                 </label>
-
-                <label className="profile-editor-field profile-select-field gender-select-field">
-                  <span>Gender</span>
-                  <select
-                    value={editedGender}
-                    onChange={(event) => setEditedGender(event.target.value)}
-                    disabled={profileEditorSaving}
-                  >
-                    <option value="">Not set</option>
-                    {GENDER_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="profile-editor-field">
-                  <span>Country</span>
-                  <select
-                    value={editedCountry}
-                    onChange={(event) => setEditedCountry(event.target.value)}
-                    disabled={profileEditorSaving}
-                  >
-                    {countryOptions.map((countryName) => (
-                      <option key={countryName} value={countryName}>
-                        {countryName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="profile-editor-field">
-                  <span>Profile path</span>
-                  <select
-                    value={editedProfileType}
-                    onChange={(event) => setEditedProfileType(event.target.value)}
-                    disabled={profileEditorSaving}
-                  >
-                    <option value="">Not set</option>
-                    {PROFILE_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {editedProfileType === "student" && (
-                  <label className="profile-editor-field">
-                    <span>College name</span>
-                    <input
-                      value={editedCollegeName}
-                      onChange={(event) =>
-                        setEditedCollegeName(event.target.value)
-                      }
-                      disabled={profileEditorSaving}
-                    />
-                  </label>
-                )}
-
-                {editedProfileType === "employee" && (
-                  <label className="profile-editor-field">
-                    <span>Organization</span>
-                    <input
-                      value={editedOrganizationName}
-                      onChange={(event) =>
-                        setEditedOrganizationName(event.target.value)
-                      }
-                      disabled={profileEditorSaving}
-                    />
-                  </label>
-                )}
 
                 <label className="profile-editor-field">
                   <span>Bio</span>

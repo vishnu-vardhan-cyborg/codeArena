@@ -1,117 +1,257 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Code2,
+  FileText,
+  FlaskConical,
+  Timer,
+} from "lucide-react";
 import { supabase } from "../../shared/services/supabase";
+import "../../styles/features/Submissions.css";
+
+const formatStatus = (status = "") =>
+  String(status || "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Pending";
+
+const getStatusClass = (status = "") =>
+  String(status || "").toLowerCase().replace(/_/g, "-") || "pending";
+
+const formatSubmittedAt = (value) =>
+  value
+    ? new Date(value).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
+const getResultRows = (rawResult) => {
+  if (!rawResult) return [];
+
+  if (Array.isArray(rawResult.results)) {
+    return rawResult.results;
+  }
+
+  if (typeof rawResult === "string") {
+    try {
+      const parsedResult = JSON.parse(rawResult);
+      return Array.isArray(parsedResult.results) ? parsedResult.results : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
 
 export default function SubmissionDetails() {
   const { submissionId } = useParams();
+  const navigate = useNavigate();
 
-  const [submission, setSubmission] =
-    useState(null);
+  const [submission, setSubmission] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadSubmission();
-  }, [submissionId]);
+  const loadSubmission = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
 
-  async function loadSubmission() {
-    const { data } = await supabase
+    const { data, error: submissionError } = await supabase
       .from("problem_submissions")
-      .select("*")
+      .select(
+        `
+        *,
+        problems (
+          id,
+          title,
+          difficulty
+        )
+      `
+      )
       .eq("id", submissionId)
       .single();
 
-    setSubmission(data);
+    if (submissionError) {
+      setError(submissionError.message);
+      setSubmission(null);
+    } else {
+      setSubmission(data);
+    }
+
+    setIsLoading(false);
+  }, [submissionId]);
+
+  useEffect(() => {
+    loadSubmission();
+  }, [loadSubmission]);
+
+  const resultRows = useMemo(
+    () => getResultRows(submission?.raw_result),
+    [submission?.raw_result]
+  );
+
+  if (isLoading) {
+    return (
+      <main className="submissions-page submissions-loading">
+        Loading submission...
+      </main>
+    );
   }
 
-  if (!submission) {
-    return <div>Loading...</div>;
+  if (error || !submission) {
+    return (
+      <main className="submissions-page">
+        <section className="submissions-panel">
+          <p className="submissions-state error">
+            {error || "Submission not found."}
+          </p>
+          <button
+            type="button"
+            className="submissions-back-button"
+            onClick={() => navigate("/submissions")}
+          >
+            Back to submissions
+          </button>
+        </section>
+      </main>
+    );
   }
+
+  const statusClass = getStatusClass(submission.status);
 
   return (
-    <div className="p-6">
-      <h1>
-        {submission.status}
-      </h1>
+    <main className="submissions-page submission-detail-page">
+      <header className="submissions-header submission-detail-header">
+        <div>
+          <span className="submissions-eyebrow">
+            <FileText size={16} />
+            Submission detail
+          </span>
+          <h1>{formatStatus(submission.status)}</h1>
+          <p>
+            {submission.problems?.title || "Untitled problem"} -{" "}
+            {submission.problems?.difficulty || "Difficulty not set"}
+          </p>
+        </div>
 
-      <p>
-        Runtime:
-        {" "}
-        {submission.runtime_ms}
-        ms
-      </p>
+        <button
+          type="button"
+          className="submissions-back-button"
+          onClick={() => navigate("/submissions")}
+        >
+          <ArrowLeft size={15} />
+          Back
+        </button>
+      </header>
 
-      <p>
-        Passed:
-        {" "}
-        {submission.passed_tests}
-        /
-        {submission.total_tests}
-      </p>
+      <section className="submission-detail-metrics">
+        <article>
+          <CheckCircle2 size={18} />
+          <span>Verdict</span>
+          <strong className={`submission-verdict ${statusClass}`}>
+            {formatStatus(submission.status)}
+          </strong>
+        </article>
+        <article>
+          <Timer size={18} />
+          <span>Runtime</span>
+          <strong>{submission.runtime_ms ?? "-"} ms</strong>
+        </article>
+        <article>
+          <FlaskConical size={18} />
+          <span>Passed</span>
+          <strong>
+            {submission.passed_tests ?? 0}/{submission.total_tests ?? 0}
+          </strong>
+        </article>
+        <article>
+          <Code2 size={18} />
+          <span>Language</span>
+          <strong>{submission.language || "-"}</strong>
+          <small>{formatSubmittedAt(submission.created_at)}</small>
+        </article>
+      </section>
 
-      <h3>Code</h3>
-
-      <pre
-        style={{
-          overflow: "auto",
-        }}
-      >
-        {submission.source_code}
-      </pre>
-
-      <h3>Test Results</h3>
-
-      {submission.raw_result?.results?.map(
-        (tc) => (
-          <div
-            key={
-              tc.testcase_number
-            }
-            style={{
-              border:
-                "1px solid #333",
-              padding: "12px",
-              marginTop: "10px",
-            }}
-          >
-            <div>
-              Case {
-                tc.testcase_number
-              }
-            </div>
-
-            <div>
-              Verdict:
-              {" "}
-              {tc.verdict}
-            </div>
-
-            <div>
-              Expected:
-              {" "}
-              {
-                tc.expected_output
-              }
-            </div>
-
-            <div>
-              Actual:
-              {" "}
-              {tc.actual_output}
-            </div>
-
-            {tc.stdout && (
-              <pre>
-                {tc.stdout}
-              </pre>
-            )}
-
-            {tc.stderr && (
-              <pre>
-                {tc.stderr}
-              </pre>
-            )}
+      <section className="submission-detail-panel">
+        <div className="submissions-panel-heading">
+          <div>
+            <span className="submissions-eyebrow">Source</span>
+            <h2>Code</h2>
           </div>
-        )
-      )}
-    </div>
+        </div>
+        <pre className="submission-code-block">
+          <code>{submission.source_code || "// No source code saved."}</code>
+        </pre>
+      </section>
+
+      <section className="submission-detail-panel">
+        <div className="submissions-panel-heading">
+          <div>
+            <span className="submissions-eyebrow">Judge output</span>
+            <h2>Test Results</h2>
+          </div>
+        </div>
+
+        {resultRows.length === 0 ? (
+          <p className="submissions-state">No testcase details saved.</p>
+        ) : (
+          <div className="submission-test-list">
+            {resultRows.map((testcase, index) => {
+              const testcaseVerdict = testcase.verdict || submission.status;
+              return (
+                <article
+                  className="submission-test-card"
+                  key={testcase.testcase_number || index}
+                >
+                  <div className="submission-test-heading">
+                    <strong>Case {testcase.testcase_number || index + 1}</strong>
+                    <span
+                      className={`submission-verdict ${getStatusClass(
+                        testcaseVerdict
+                      )}`}
+                    >
+                      {formatStatus(testcaseVerdict)}
+                    </span>
+                  </div>
+
+                  <div className="submission-test-grid">
+                    <div>
+                      <span>Expected</span>
+                      <pre>{testcase.expected_output ?? "-"}</pre>
+                    </div>
+                    <div>
+                      <span>Actual</span>
+                      <pre>{testcase.actual_output ?? "-"}</pre>
+                    </div>
+                  </div>
+
+                  {(testcase.stdout || testcase.stderr) && (
+                    <div className="submission-test-console">
+                      {testcase.stdout && (
+                        <div>
+                          <span>Stdout</span>
+                          <pre>{testcase.stdout}</pre>
+                        </div>
+                      )}
+                      {testcase.stderr && (
+                        <div>
+                          <span>Stderr</span>
+                          <pre>{testcase.stderr}</pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
