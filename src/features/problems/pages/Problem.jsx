@@ -182,7 +182,6 @@ export default function Problem() {
       });
 
       const result = await response.json();
-      console.log(result)
 
       setRunResult(result);
 
@@ -286,6 +285,11 @@ async function submitCode() {
   }
 }
 
+function resetCode(){
+  setCode(problem.starter_code?.[language] || "");
+
+}
+
   if (!problem) {
     return (
       <div className="problem-page problem-loading-state">
@@ -316,6 +320,7 @@ async function submitCode() {
                 setLanguage={setLanguage}
                 code={code}
                 setCode={setCode}
+                resetCode={resetCode}
                 runCode={runCode}
                 submitCode={submitCode}
                 running={running}
