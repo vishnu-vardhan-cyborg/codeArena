@@ -9,6 +9,7 @@ export default function CodeEditor({
   setLanguage,
   code,
   setCode,
+  resetCode,
   runCode,
   submitCode,
   running,
@@ -70,6 +71,7 @@ export default function CodeEditor({
           <button
             type="button"
             className="editor-action-button reset-btn"
+            onClick={resetCode}
           >
             <RotateCcw size={16} />
             Reset
