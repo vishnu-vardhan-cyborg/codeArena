@@ -1,0 +1,775 @@
+.aura-page {
+  min-height: 100vh;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  width: min(1320px, calc(100vw - 42px));
+  margin: 0 auto;
+  padding: 26px 0 64px;
+  color: #f6f7f9;
+}
+
+.aura-page button,
+.aura-page input,
+.aura-page select,
+.aura-page textarea {
+  font: inherit;
+}
+
+.aura-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto) auto;
+  align-items: end;
+  gap: 18px;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 10px;
+  padding: clamp(18px, 2vw, 26px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(12, 14, 18, 0.84);
+}
+
+.aura-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #dfe3e9;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.aura-hero h1 {
+  margin: 8px 0 8px;
+  color: #fff;
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.aura-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: #aeb7c2;
+  line-height: 1.6;
+}
+
+.aura-user-score {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  border: 1px solid rgba(244, 201, 93, 0.28);
+  border-radius: 9px;
+  padding: 14px 16px;
+  background: rgba(244, 201, 93, 0.08);
+}
+
+.aura-user-score span,
+.aura-user-score small {
+  color: #aeb7c2;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.aura-user-score strong {
+  color: #ffe9a3;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.aura-create-button,
+.aura-card-actions button,
+.aura-card-actions a,
+.aura-modal-actions button,
+.aura-rating-panel button,
+.aura-comment-composer button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(232, 235, 239, 0.2);
+  border-radius: 7px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f6f7f9;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.aura-create-button,
+.aura-modal-actions button:last-child,
+.aura-rating-panel button,
+.aura-comment-composer button {
+  border-color: rgba(89, 211, 198, 0.5);
+  background: #159589;
+  color: #061110;
+}
+
+.aura-create-button:hover,
+.aura-card-actions button:hover,
+.aura-card-actions a:hover,
+.aura-modal-actions button:hover,
+.aura-rating-panel button:hover,
+.aura-comment-composer button:hover {
+  border-color: rgba(244, 201, 93, 0.58);
+  color: #ffe9a3;
+}
+
+.aura-schema-note,
+.aura-empty {
+  margin: 0;
+  border: 1px dashed rgba(232, 235, 239, 0.2);
+  border-radius: 8px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #aeb7c2;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.aura-schema-note {
+  border-color: rgba(244, 201, 93, 0.42);
+  background: rgba(244, 201, 93, 0.1);
+  color: #ffe9a3;
+}
+
+.aura-empty.compact {
+  padding: 12px;
+  font-size: 12px;
+}
+
+.aura-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, auto) minmax(180px, auto);
+  gap: 10px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(12, 14, 18, 0.72);
+}
+
+.aura-toolbar label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #aeb7c2;
+}
+
+.aura-toolbar input,
+.aura-toolbar select {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: #f6f7f9;
+  outline: none;
+}
+
+.aura-toolbar select option {
+  background: #0d1117;
+  color: #f6f7f9;
+}
+
+.aura-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.34fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.aura-feed,
+.aura-side-panel,
+.aura-leaderboard,
+.aura-rules-card {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.aura-side-panel {
+  position: sticky;
+  top: 18px;
+}
+
+.aura-leaderboard,
+.aura-rules-card,
+.aura-feed {
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 10px;
+  padding: clamp(16px, 2vw, 20px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(12, 14, 18, 0.78);
+}
+
+.aura-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 14px;
+}
+
+.aura-section-heading.compact {
+  align-items: start;
+}
+
+.aura-section-heading h2,
+.aura-rules-card h2,
+.aura-rating-panel h3,
+.aura-modal-heading h2 {
+  margin: 6px 0 0;
+  color: #fff;
+  letter-spacing: 0;
+}
+
+.aura-section-heading h2 {
+  font-size: clamp(22px, 3vw, 32px);
+}
+
+.aura-section-heading > strong {
+  border: 1px solid rgba(244, 201, 93, 0.3);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(244, 201, 93, 0.08);
+  color: #ffe9a3;
+  font-size: 12px;
+}
+
+.aura-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.aura-creation-card {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 170px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aura-creation-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #151b21;
+}
+
+.aura-creation-cover.empty {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(89, 211, 198, 0.12), rgba(244, 201, 93, 0.1)),
+    #10141b;
+  color: #f4c95d;
+}
+
+.aura-card-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.aura-card-topline,
+.aura-creator-row,
+.aura-card-actions,
+.aura-reaction-row,
+.aura-proof-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aura-card-topline {
+  justify-content: space-between;
+}
+
+.aura-card-topline span {
+  color: #aeb7c2;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.aura-card-topline strong {
+  color: #ffe9a3;
+  font-size: 12px;
+}
+
+.aura-card-main h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.aura-card-main p {
+  margin: 0;
+  color: #c4ccd4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.aura-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aura-tag-row span {
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #dfe3e9;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.aura-tag-row span.tech {
+  border-color: rgba(89, 211, 198, 0.24);
+  color: #9df5ec;
+}
+
+.aura-creator-row img,
+.aura-leader-list img,
+.aura-comment-list img {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.aura-creator-row span,
+.aura-leader-list span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.aura-creator-row strong,
+.aura-leader-list b {
+  overflow: hidden;
+  color: #fff;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aura-creator-row small,
+.aura-leader-list small {
+  color: #aeb7c2;
+  font-size: 10px;
+}
+
+.aura-reaction-row {
+  gap: 6px;
+}
+
+.aura-reaction-row button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(232, 235, 239, 0.14);
+  border-radius: 999px;
+  padding: 0 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #cfd6dd;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.aura-reaction-row button.active {
+  border-color: rgba(244, 201, 93, 0.5);
+  background: rgba(244, 201, 93, 0.12);
+  color: #ffe9a3;
+}
+
+.aura-reaction-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.aura-card-actions {
+  margin-top: auto;
+}
+
+.aura-card-actions button {
+  border-color: rgba(89, 211, 198, 0.34);
+}
+
+.aura-leader-list {
+  display: grid;
+  gap: 8px;
+}
+
+.aura-leader-list > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(232, 235, 239, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aura-leader-list > div > strong,
+.aura-leader-list em {
+  color: #ffe9a3;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.aura-rules-card div {
+  display: grid;
+  gap: 9px;
+}
+
+.aura-rules-card p {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  color: #c4ccd4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.aura-rules-card svg {
+  color: #f4c95d;
+}
+
+.aura-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.aura-modal {
+  width: min(980px, 100%);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(232, 235, 239, 0.2);
+  border-radius: 12px;
+  padding: clamp(18px, 2vw, 24px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    #0d1117;
+  color: #f6f7f9;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
+}
+
+.aura-detail-modal {
+  width: min(1120px, 100%);
+}
+
+.aura-modal-heading,
+.aura-modal-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.aura-modal-heading > button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(232, 235, 239, 0.2);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.aura-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aura-form-grid label,
+.aura-rating-panel,
+.aura-rating-row {
+  min-width: 0;
+}
+
+.aura-form-grid label,
+.aura-rating-panel label {
+  display: grid;
+  gap: 7px;
+  color: #aeb7c2;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.aura-form-grid label.wide {
+  grid-column: 1 / -1;
+}
+
+.aura-form-grid input,
+.aura-form-grid select,
+.aura-form-grid textarea,
+.aura-rating-panel textarea,
+.aura-comment-composer textarea {
+  width: 100%;
+  border: 1px solid rgba(232, 235, 239, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  outline: none;
+}
+
+.aura-form-grid input,
+.aura-form-grid select {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.aura-form-grid textarea,
+.aura-rating-panel textarea,
+.aura-comment-composer textarea {
+  min-height: 92px;
+  resize: vertical;
+  padding: 11px 12px;
+  line-height: 1.5;
+}
+
+.aura-form-grid select option {
+  background: #0d1117;
+  color: #f6f7f9;
+}
+
+.aura-modal-actions {
+  justify-content: flex-end;
+}
+
+.aura-modal-actions button:disabled,
+.aura-rating-panel button:disabled,
+.aura-comment-composer button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.aura-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.42fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.aura-proof-panel,
+.aura-rating-panel,
+.aura-comments-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 10px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aura-proof-score {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 12px;
+  border: 1px solid rgba(244, 201, 93, 0.22);
+  border-radius: 9px;
+  padding: 14px;
+  background: rgba(244, 201, 93, 0.08);
+}
+
+.aura-proof-score strong {
+  grid-row: span 2;
+  color: #ffe9a3;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.aura-proof-score span,
+.aura-proof-score small,
+.aura-proof-block span {
+  color: #aeb7c2;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.aura-proof-panel p,
+.aura-proof-block p {
+  margin: 0;
+  color: #dce3e8;
+  line-height: 1.6;
+}
+
+.aura-proof-block {
+  display: grid;
+  gap: 6px;
+}
+
+.aura-proof-links a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(232, 235, 239, 0.16);
+  border-radius: 7px;
+  padding: 0 11px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #e8ebef;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.aura-rating-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 120px 24px;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.aura-rating-row input {
+  accent-color: #59d3c6;
+}
+
+.aura-rating-row b {
+  color: #ffe9a3;
+  text-align: right;
+}
+
+.aura-comment-composer {
+  display: grid;
+  gap: 10px;
+}
+
+.aura-comment-composer button {
+  justify-self: end;
+}
+
+.aura-comment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.aura-comment-list article {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  border: 1px solid rgba(232, 235, 239, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.aura-comment-list span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.aura-comment-list strong {
+  color: #fff;
+  font-size: 12px;
+}
+
+.aura-comment-list small {
+  color: #aeb7c2;
+  font-size: 10px;
+}
+
+.aura-comment-list p {
+  margin: 0;
+  color: #dce3e8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1120px) {
+  .aura-hero,
+  .aura-layout,
+  .aura-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aura-side-panel {
+    position: static;
+  }
+
+  .aura-user-score {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 820px) {
+  .aura-page {
+    width: calc(100vw - 28px);
+    padding-top: 14px;
+  }
+
+  .aura-toolbar,
+  .aura-card-grid,
+  .aura-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aura-form-grid label.wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .aura-modal-backdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .aura-modal {
+    max-height: 94vh;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .aura-rating-row {
+    grid-template-columns: 1fr;
+  }
+
+  .aura-leader-list > div {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+  }
+
+  .aura-leader-list img {
+    display: none;
+  }
+}
